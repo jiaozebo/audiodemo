@@ -1,0 +1,33 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <PreferenceCategory android:title="平台" >
+        <EditTextPreference
+            android:capitalize="words"
+            android:defaultValue="58.211.11.100"
+            android:inputType="textCapWords"
+            android:key="KEY_SERVER_ADDRESS"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="平台地址" />
+        <EditTextPreference
+            android:capitalize="words"
+            android:defaultValue="8958"
+            android:inputType="number"
+            android:key="KEY_SERVER_PORT"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="端口" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="key_fixAddr"
+            android:title="透过网闸登录平台" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="key_high_quality"
+            android:title="高品质" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
