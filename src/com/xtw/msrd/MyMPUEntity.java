@@ -41,8 +41,6 @@ public class MyMPUEntity extends MPUEntity {
 	private static final int FRAME_NUMBER_PER_FILE = 50000;
 	protected static int SIZE = 4096;
 	protected static final String TAG = "MyMPUEntity";
-	protected MainActivity mAac;
-	private long mEncHandle;
 	private Thread mIAThread;
 	private DC7 mIADc;
 	private DC7 mIVDc;
@@ -63,10 +61,12 @@ public class MyMPUEntity extends MPUEntity {
 		f.mkdirs();
 		// 默认录像
 		startNewFile(createZipPath());
+		checkThread();
 	}
 
 	protected List<PUDataChannel> mPDc = new ArrayList<PUDataChannel>();
 	protected EncryptZipOutput mZipOutput;
+	protected Object mZipOutputLock = new Object();
 	private String mCurrentRecordFileName;
 
 	public void addPUDataChannel(PUDataChannel pdc) {
@@ -98,7 +98,7 @@ public class MyMPUEntity extends MPUEntity {
 					}
 			} else if (resType == 1) {// ia
 				if (msg.what == 0x3600) {
-					if (mAac == null) {
+					if (mIAThread == null) {
 						startOrRestart();
 					}
 					addPUDataChannel(pdc);
@@ -121,10 +121,9 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	public void startOrRestart() {
-		if (mAac != null) {
+		if (isAudioStarted()) {
 			stopAudio();
 		}
-		mAac = new MainActivity();
 		Thread t = new Thread() {
 			int mIdx = 0;
 
@@ -144,7 +143,8 @@ public class MyMPUEntity extends MPUEntity {
 				AudioRecord ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
 				size = SIZE;
 				ar.startRecording();
-				mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
+				MainActivity mAac = new MainActivity();
+				long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
 				byte[] readBuf = new byte[size];
 				byte[] outBuf = new byte[size];
 				int read = 0;
@@ -249,6 +249,7 @@ public class MyMPUEntity extends MPUEntity {
 						}
 					}
 				}
+				mAac.NativeEncodeClose(mEncHandle);
 				ar.release();
 			}
 		};
@@ -351,12 +352,6 @@ public class MyMPUEntity extends MPUEntity {
 			}
 		}
 		stopRecord();
-		MainActivity aac = mAac;
-		if (aac != null) {
-			aac.NativeEncodeClose(mEncHandle);
-			mEncHandle = 0;
-			mAac = null;
-		}
 	}
 
 	/*
@@ -431,40 +426,44 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	private synchronized void stopRecord() {
-		mCurrentRecordFileName = null;
-		EncryptZipOutput output = mZipOutput;
-		if (output != null) {
-			mZipOutput = null;
-			try {
-				output.flush();
-				output.closeEntry();
-				output.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+	private void stopRecord() {
+		synchronized (mZipOutputLock) {
+			mCurrentRecordFileName = null;
+			EncryptZipOutput output = mZipOutput;
+			if (output != null) {
+				mZipOutput = null;
+				try {
+					output.flush();
+					output.closeEntry();
+					output.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 
+			}
 		}
 	}
 
-	private synchronized void startNewFile(String filePath) {
-		try {
-			mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
-			mCurrentRecordFileName = new File(filePath).getName();
-			filePath = filePath.replace(".zip", ".aac");
-			mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			if (mZipOutput != null) {
-				try {
-					mZipOutput.close();
-				} catch (IOException e1) {
-					e1.printStackTrace();
+	public void startNewFile(String filePath) {
+		synchronized (mZipOutputLock) {
+			try {
+				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
+				mCurrentRecordFileName = new File(filePath).getName();
+				filePath = filePath.replace(".zip", ".aac");
+				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				if (mZipOutput != null) {
+					try {
+						mZipOutput.close();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+					mZipOutput = null;
 				}
-				mZipOutput = null;
+				e.printStackTrace();
 			}
-			e.printStackTrace();
 		}
 	};
 
@@ -476,20 +475,22 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	private synchronized void recordFrame(byte[] outBuf, int ret) {
-		EncryptZipOutput output = mZipOutput;
-		if (output != null) {
+	private void recordFrame(byte[] outBuf, int ret) {
+		synchronized (mZipOutputLock) {
+			EncryptZipOutput output = mZipOutput;
+			if (output != null) {
 
-			try {
-				output.write(outBuf, 0, ret);
-				output.flush();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				try {
+					output.write(outBuf, 0, ret);
+					output.flush();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				// CommonMethod.save2fileNoLength(outBuf, 0, ret,
+				// filePath, true);
 			}
-
-			// CommonMethod.save2fileNoLength(outBuf, 0, ret,
-			// filePath, true);
 		}
 	}
 
@@ -510,6 +511,7 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	public boolean isAudioStarted() {
-		return mIAThread != null;
+		Thread mIAThread2 = mIAThread;
+		return mIAThread2 != null && mIAThread2.isAlive();
 	}
 }

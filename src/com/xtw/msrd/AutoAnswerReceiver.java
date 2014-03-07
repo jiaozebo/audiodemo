@@ -30,6 +30,8 @@ import android.provider.ContactsContract.PhoneLookup;
 import android.telephony.TelephonyManager;
 
 public class AutoAnswerReceiver extends BroadcastReceiver {
+	boolean mRecord = false;
+
 	@Override
 	public void onReceive(Context context, Intent intent) {
 
@@ -68,11 +70,13 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		} else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(phone_state)) {
 			if (entity != null) {
 				CommonMethod.save2File("stop audio", path, true);
+				mRecord = entity.isLocalRecord();
 				entity.stopAudio();
 			}
 		} else if (phone_state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
 			if (entity != null && !entity.isAudioStarted()) {
 				CommonMethod.save2File("restart audio", path, true);
+				entity.setLocalRecord(mRecord);
 				entity.startOrRestart();
 			}
 		}

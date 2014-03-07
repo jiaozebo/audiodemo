@@ -7,7 +7,6 @@ import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -35,16 +34,18 @@ import android.os.Environment;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.crearo.config.Apn;
-import com.crearo.config.NanoHTTPD;
 import com.crearo.config.Apn.ApnNode;
+import com.crearo.config.NanoHTTPD;
 import com.crearo.config.NanoHTTPD.Response.Status;
 import com.crearo.config.Wifi;
 import com.crearo.puserver.PUCommandChannel;
 import com.xtw.msrd.G.LoginStatus;
 
 public class ConfigServer extends NanoHTTPD {
+	private static final String TAG = "Config";
 	private String mRoot;
 	private Context mContext;
 
@@ -81,9 +82,10 @@ public class ConfigServer extends NanoHTTPD {
 					} else {
 						Editor edit = PreferenceManager.getDefaultSharedPreferences(mContext)
 								.edit();
-						edit.putString(G.KEY_SERVER_ADDRESS, addr)
+						boolean ret = edit.putString(G.KEY_SERVER_ADDRESS, addr)
 								.putString(G.KEY_SERVER_PORT, port)
 								.putBoolean(G.KEY_HIGH_QUALITY, highQuality).commit();
+						Log.e(TAG, "config server :" + ret);
 						sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>参数修改成功，已退出登录!</body></html>");
 					}
 				}
@@ -192,36 +194,39 @@ public class ConfigServer extends NanoHTTPD {
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/?white_list=1' />\n<body>正在处理...</body></html>");
 			} else if (parms.containsKey("add_apn")) {
 				String name = parms.get("name");
-				String apn = parms.get("apn");
-				String usr = parms.get("user");
-				String pwd = parms.get("pwd");
-
-				ApnNode node = Apn.getDefaultApn(mContext);
-				if (node == null) {
-					node = new ApnNode();
-				}
-				node.name = name;
-				node.apn = apn;
-				node.user = usr;
-				node.password = pwd;
-				int id = node.id;
-				if (id == -1) {
-					Uri uri1 = Apn.addApn(mContext, node);
-					if (uri1 != null) {
-						String idStr = uri1.getLastPathSegment();
-						if (idStr != null) {
-							id = Integer.parseInt(idStr);
+				String number = parms.get("number");
+				int id = -1;
+				if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(number)) {
+					if (number.length() == 4) {
+						ApnNode node = Apn.getDefaultApn(mContext);
+						if (node == null) {
+							node = new ApnNode();
 						}
+						node.name = name;
+						node.apn = "#777";
+						node.user = number + "@nsa.vpdn.sh";
+						node.password = number + "716";
+						node.mnc = "03";
+						node.mcc = "460";
+						id = node.id;
+						if (id == -1) {
+							Uri uri1 = Apn.addApn(mContext, node);
+							if (uri1 != null) {
+								String idStr = uri1.getLastPathSegment();
+								if (idStr != null) {
+									id = Integer.parseInt(idStr);
+								}
+							}
+						} else {
+							Apn.updateApn(mContext, id, node);
+						}
+						id = Apn.setDefault(mContext, id);
 					}
-				} else {
-					Apn.updateApn(mContext, id, node);
 				}
-				id = Apn.setDefault(mContext, id);
-				StringBuilder sb = new StringBuilder();
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>"
 								+ (id != -1 ? "成功." : "未成功") + "</body></html>");
-			} else if (parms.containsKey("apn_config")) { // 白名单
+			} else if (parms.containsKey("apn_config")) {
 
 				// <html>
 				// <meta http-equiv='Content-Type' content='text/html;
@@ -298,97 +303,128 @@ public class ConfigServer extends NanoHTTPD {
 				myMPUEntity.setLocalRecord(record_state.equals("on"));
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...</body></html>");
+			} else if (parms.containsKey("confirm")) {
+				final String pwd = parms.get("pwd");
+				if (pwd.equals("123")) {
+					StringBuilder sb = new StringBuilder();
+					sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
+					sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
+					sb.append("\t<body>\n");
+					sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
+
+					sb.append("\t\t\t<form method='post' action=''><br/>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>配置APN</h3>\n");
+					sb.append("<label>名称:</label><input type='text' name='name' value=''/><label>卡号后四位:</label><input type='number' name='number' value=''/><input type='submit' name='add_apn' value='添加'>");
+					sb.append("<br/>");
+					sb.append("\t\t\t</form>\n");
+
+					sb.append("\t\t\t<form  method='post' action=''>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>平台</h3>\n");
+					sb.append(String.format(
+							"\t\t\t\t服务器IP地址: <input type='text' name='address' value='%s'/>\n",
+							G.mAddres));
+					sb.append(String.format(
+							"\t\t\t\t端口: <input type='number' name='port' value='%s'/>\n", G.mPort));
+					if (G.sHighQuality) {
+						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
+					} else {
+						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality'/><br />\n");
+					}
+					sb.append("\t\t\t\t<input type='submit' value='配置' />\n");
+					sb.append("\t\t\t</form>\n");
+					sb.append("\t\t\t<form  method='post' action=''>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>控制模块登录或退出“3G侦控平台”</h3>\n");
+					sb.append("\t\t\t\t<input type='submit' name='login' value='登录'>\n");
+					sb.append("\t\t\t\t<input type='submit'  name='logout'value='退出登录'>\n");
+					sb.append("\t\t\t</form>\n");
+					sb.append("\t\t<a href='?query_login_status=1'>查询登录状态</a><br/><br/><br/>\n");
+					// WIFI begin
+
+					String cSSID = Wifi.getCurrentSSID(mContext);
+					Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(mContext);
+					if (configuredNetworks != null) {
+						sb.append("\t\t\t<form method='post' action=''>\n");
+						sb.append("\t\t<h3 style='margin:0;padding:0'>周边WIFI接入点名称:</h3>\n");
+						Iterator<ScanResult> it = configuredNetworks.iterator();
+						while (it.hasNext()) {
+							ScanResult cfg = (ScanResult) it.next();
+							String sSID = cfg.SSID;
+							if (sSID.startsWith("\"")) {
+								sSID = sSID.substring(1);
+							}
+							if (sSID.endsWith("\"")) {
+								sSID = sSID.substring(0, sSID.length() - 1);
+							}
+							sb.append(String.format("%s(%d)", sSID, 100 + cfg.level));
+							sb.append("<input type='radio' name='ssid' ");
+							String valueString = String.format("value='%s'", sSID);
+							sb.append(valueString);
+							if (cSSID.equals(sSID) || cSSID.equals(String.format("\"%s\"", sSID))) {
+								sb.append("checked='checked'");
+							}
+							sb.append("/><br />");
+						}
+						sb.append("\t\t\t\t密码: <input type='password' name='password' value=''/>\n");
+						sb.append("\t\t\t\t<input type='submit' name='wifi' value='连接'>\n");
+						sb.append("\t\t\t</form>\n");
+					}
+
+					// WIFI end
+
+					// storage available begin
+					sb.append("\t\t<h3 style='margin:0;padding:0'>设备存储</h3>\n");
+					long available = storageAvailable();
+					sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
+							available * 1.0f / 1073741824f));
+					// storage available end
+
+					// baterry begin
+					sb.append("\t\t<h3 style='margin:0;padding:0'>设备电量</h3>\n");
+					float percent = getBaterryPecent(mContext);
+					String p = String.format("%.2f", percent * 100);
+					p += "%";
+					sb.append(String.format("\t\t\t<label >当前电池电量:%s</label><br/>\n", p));
+					// baterry end
+
+					// record switch
+					sb.append("\t\t\t<form method='post' action=''>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>模块本地录音功能:</h3>\n");
+					G g = (G) mContext.getApplicationContext();
+					if (g.mEntity.isLocalRecord()) {
+						sb.append("\t\t\t\t开启<input type='radio' checked='checked' name='record_state' value='on' /><br />\n");
+						sb.append("\t\t\t\t关闭<input type='radio' name='record_state' value='off' /><br />\n");
+					} else {
+						sb.append("\t\t\t\t开启<input type='radio' name='record_state' value='on' /><br />\n");
+						sb.append("\t\t\t\t关闭<input type='radio'  checked='checked' name='record_state' value='off' /><br />\n");
+					}
+					sb.append("\t\t\t\t<input type='submit' name='record' value='修改'><br/>\n");
+					sb.append("\t\t\t</form>\n");
+					// record switch end
+
+					sb.append("\t\t<a href='?list_files=1'>模块录制文件下载</a><br/>\n");
+					sb.append("\t\t<a href='?white_list=1'>设置来电白名单</a><br/>\n");
+					sb.append("\t</body>\n");
+					sb.append("</html>\n");
+
+					return new Response(sb.toString());
+				} else {
+
+				}
 			}
 			StringBuilder sb = new StringBuilder();
 			sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
 			sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
 			sb.append("\t<body>\n");
-			sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
-			sb.append("\t\t\t<form  method='get' action=''>\n");
-			sb.append(String.format(
-					"\t\t\t\tAddress: <input type='text' name='address' value='%s'/>\n", G.mAddres));
-			sb.append(String.format(
-					"\t\t\t\tPort: <input type='number' name='port' value='%s'/>\n", G.mPort));
-			if (G.sHighQuality) {
-				sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
-			} else {
-				sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality'/><br />\n");
-			}
-			sb.append("\t\t\t\t<input type='submit' value='配置' />\n");
+
+			sb.append("\t\t\t<form method='post' action=''><br/>\n");
+			sb.append("\t\t<h3 style='margin:0;padding:0'>输入密码：</h3>\n");
+			sb.append("<input type='password' name='pwd' value=''/>");
+			sb.append("<input type='submit' name='confirm' value='确定'>");
 			sb.append("\t\t\t</form>\n");
-			sb.append("\t\t\t<form  method='get' action=''>\n");
-			sb.append("\t\t\t\t<input type='submit' name='login' value='登录'>\n");
-			sb.append("\t\t\t\t<input type='submit'  name='logout'value='退出登录'>\n");
-			sb.append("\t\t\t</form>\n");
-			// WIFI begin
-
-			String cSSID = Wifi.getCurrentSSID(mContext);
-			Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(mContext);
-			if (configuredNetworks != null) {
-				sb.append("\t\t\t<form method='post' action=''>\n");
-				sb.append("\t\t\t\t<label >设备的WIFI环境:</label><br/>\n");
-				Iterator<ScanResult> it = configuredNetworks.iterator();
-				while (it.hasNext()) {
-					ScanResult cfg = (ScanResult) it.next();
-					String sSID = cfg.SSID;
-					if (sSID.startsWith("\"")) {
-						sSID = sSID.substring(1);
-					}
-					if (sSID.endsWith("\"")) {
-						sSID = sSID.substring(0, sSID.length() - 1);
-					}
-					sb.append(String.format("%s(%d)", sSID, 100 + cfg.level));
-					sb.append("<input type='radio' name='ssid' ");
-					String valueString = String.format("value='%s'", sSID);
-					sb.append(valueString);
-					if (cSSID.equals(sSID) || cSSID.equals(String.format("\"%s\"", sSID))) {
-						sb.append("checked='checked'");
-					}
-					sb.append("/><br />");
-				}
-				sb.append("\t\t\t\t密码: <input type='password' name='password' value=''/>\n");
-				sb.append("\t\t\t\t<input type='submit' name='wifi' value='配置'>\n");
-				sb.append("\t\t\t</form>\n");
-			}
-
-			// WIFI end
-
-			// storage available begin
-			long available = storageAvailable();
-			sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
-					available * 1.0f / 1073741824f));
-			// storage available end
-
-			// baterry begin
-			float percent = getBaterryPecent(mContext);
-			String p = String.format("%.2f", percent * 100);
-			p += "%";
-			sb.append(String.format("\t\t\t<label >当前电池电量:%s</label><br/>\n", p));
-			// baterry end
-
-			// record switch
-			sb.append("\t\t\t<form method='post' action=''>\n");
-			sb.append("\t\t\t\t<label >当前录音状态:</label><br/>\n");
-			G g = (G) mContext.getApplicationContext();
-			if (g.mEntity.isLocalRecord()) {
-				sb.append("\t\t\t\t开启<input type='radio' checked='checked' name='record_state' value='on' /><br />\n");
-				sb.append("\t\t\t\t关闭<input type='radio' name='record_state' value='off' /><br />\n");
-			} else {
-				sb.append("\t\t\t\t开启<input type='radio' name='record_state' value='on' /><br />\n");
-				sb.append("\t\t\t\t关闭<input type='radio'  checked='checked' name='record_state' value='off' /><br />\n");
-			}
-			sb.append("\t\t\t\t<input type='submit' name='record' value='配置'><br/>\n");
-			sb.append("\t\t\t</form>\n");
-			// record switch end
-
-			sb.append("\t\t<a href='?query_login_status=1'>查询登录状态</a><br/>\n");
-			sb.append("\t\t<a href='?list_files=1'>下载文件</a><br/>\n");
-			sb.append("\t\t<a href='?white_list=1'>来电白名单</a><br/>\n");
-			sb.append("\t\t<a href='?apn_config=1'>配置apn</a>\n");
 			sb.append("\t</body>\n");
 			sb.append("</html>\n");
-
 			return new Response(sb.toString());
+
 		} else {
 			if (parms.containsKey("delete")) {
 				File f = new File(mRoot, uri);

@@ -7,6 +7,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -91,6 +92,14 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 
 		findViewById(R.id.btn_add_apn).setOnClickListener(this);
 		tryEnableMobileData();
+
+		try {
+			TextView view = (TextView) findViewById(R.id.version);
+			PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
+			view.setText("版本：" + pi.versionName);
+		} catch (Exception e) {
+		}
+
 	}
 
 	private void tryEnableMobileData() {

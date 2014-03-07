@@ -121,7 +121,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 			}
 		};
-		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
+		// Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
 		initRoot();
 		mEntity = new MyMPUEntity(this);
@@ -130,8 +130,10 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		sPUInfo.puid = Common.getPuid(this);// "151123456789123456";
 		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(),
 				android.os.Build.MODEL);
-		sPUInfo.mMicName = android.os.Build.MODEL;
-		sPUInfo.mSpeakerName = android.os.Build.MODEL;
+		sPUInfo.mMicName = pref
+				.getString(MPUHandler.KEY_IA_NAME.toString(), android.os.Build.MODEL);
+		sPUInfo.mSpeakerName = pref.getString(MPUHandler.KEY_OA_NAME.toString(),
+				android.os.Build.MODEL);
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
 		File root = new File(sRootPath);
