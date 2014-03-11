@@ -28,9 +28,11 @@ import android.net.Uri;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract.PhoneLookup;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 
 public class AutoAnswerReceiver extends BroadcastReceiver {
-	boolean mRecord = false;
+
+	private static final String tag = "AutoAnswer";
 
 	@Override
 	public void onReceive(Context context, Intent intent) {
@@ -70,14 +72,15 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		} else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(phone_state)) {
 			if (entity != null) {
 				CommonMethod.save2File("stop audio", path, true);
-				mRecord = entity.isLocalRecord();
+				Log.e(tag, "ring,close");
+				prefs.edit().putBoolean("prev_record", entity.isLocalRecord()).commit();
 				entity.stopAudio();
 			}
 		} else if (phone_state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
 			if (entity != null && !entity.isAudioStarted()) {
 				CommonMethod.save2File("restart audio", path, true);
-				entity.setLocalRecord(mRecord);
-				entity.startOrRestart();
+				entity.setLocalRecord(prefs.getBoolean("prev_record", true));
+				Log.e(tag, "ring stoped,reopen");
 			}
 		}
 	}

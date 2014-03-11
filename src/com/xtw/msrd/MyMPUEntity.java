@@ -124,7 +124,7 @@ public class MyMPUEntity extends MPUEntity {
 		if (isAudioStarted()) {
 			stopAudio();
 		}
-		Thread t = new Thread() {
+		Thread t = new Thread("AUDIO") {
 			int mIdx = 0;
 
 			public void run() {
@@ -140,117 +140,131 @@ public class MyMPUEntity extends MPUEntity {
 				if (size < audioBuffer) {
 					size = audioBuffer * 2;
 				}
-				AudioRecord ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
 				size = SIZE;
-				ar.startRecording();
-				MainActivity mAac = new MainActivity();
-				long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
-				byte[] readBuf = new byte[size];
-				byte[] outBuf = new byte[size];
-				int read = 0;
-				int loopCount = 0;
-				while (mIAThread != null) {
-					int cread = ar.read(readBuf, read, readBuf.length - read);
-					if (cread < 0)
-						break;
-					read += cread;
-					if (read < readBuf.length) {
-						continue;
-					}
-					read = 0;
-
-					int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
-							outBuf, size);
-					if (ret <= 0) {
-						continue;
-					}
-					// save begin
-					if (isLocalRecord()) {
-						if ((mIdx++ == FRAME_NUMBER_PER_FILE || mResetFile)) {
-							mIdx = 0;
-							mResetFile = false;
-							String filePath = createZipPath();
-
-							stopRecord();
-							startNewFile(filePath);
+				AudioRecord ar = null;
+				try {
+					ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
+					ar.startRecording();
+					MainActivity mAac = new MainActivity();
+					long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
+					byte[] readBuf = new byte[size];
+					byte[] outBuf = new byte[size];
+					int read = 0;
+					int loopCount = 0;
+					while (mIAThread != null) {
+						int cread = ar.read(readBuf, read, readBuf.length - read);
+						if (cread < 0)
+							break;
+						read += cread;
+						if (read < readBuf.length) {
+							continue;
 						}
-						recordFrame(outBuf, ret);
-					}
-					// save end
+						read = 0;
 
-					final DC7 dc = mIADc;
-					if (dc == null && !isLocalRecord() && mPDc.isEmpty()) {
-						break;
-					}
-					// send
-					boolean empty = mPDc.isEmpty();
-					if (dc != null || !empty) {
-						Frame frame = new Frame();
-						frame.timeStamp = System.currentTimeMillis();
-						/**
-						 * BlockAlign 2 每个算法帧的包含的字节数 804 0x0324 Channels 1
-						 * 通道个数,一般是1或2 1 0x01 BitsPerSample 1
-						 * PCM格式时的采样精度，一般是8bit或16bit 16 0x10 SamplesPerSec 2
-						 * PCM格式时的采样率除以100。例如：8K采样填80 320 0x0140 AlgFrmNum 2
-						 * 后面算法帧的个数，这个值应该保持不变 01 0x01 ProducerID 2 厂商ID 01 0x01
-						 * PCMLen 2 一个算法帧解码后的PCM数据长度 2048 0x0800 Reserved 4 保留
-						 * //AudioData AlgFrmNum* BlockAlign
-						 * AlgFrmNum个算法帧，每个算法帧的长度为BlockAlign。客户端解码时，
-						 * 直接将这段数据分成BlockAlign的算法帧 ，然后分别送入ProducerID对应的解码库进行解码。
-						 * AlgID 1 算法类型的ID 0x0a Rsv 3 保留
-						 */
-						ByteBuffer buffer = ByteBuffer.allocate(16 + 4 + 4 + ret);
-						buffer.order(ByteOrder.LITTLE_ENDIAN);
-						buffer.putShort((short) (0x0324));
-						buffer.put((byte) 1);
-						buffer.put((byte) 0x10);
-						buffer.putShort((short) (Fr / 100));
-						buffer.putShort((short) 0);
-						buffer.putShort((short) 1);
-						buffer.putShort((short) size);
-						buffer.putInt(0);
+						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
+								outBuf, size);
+						if (ret <= 0) {
+							continue;
+						}
+						// save begin
+						if (isLocalRecord()) {
+							if ((mIdx++ == FRAME_NUMBER_PER_FILE || mResetFile)) {
+								mIdx = 0;
+								mResetFile = false;
+								String filePath = createZipPath();
 
-						buffer.putInt(ret + 4); // 4 length
-						buffer.put((byte) 0x0a);
-						buffer.put((byte) 0);
-						buffer.putShort((short) 0);
-						buffer.put(outBuf, 0, ret);
-
-						frame.data = buffer.array();
-						frame.offset = 0;
-						frame.length = frame.data.length;
-						frame.keyFrmFlg = 1;
-						frame.type = Frame.FRAME_TYPE_AUDIO;
-						frame.mFrameIdx = loopCount++;
-
-						ByteBuffer bf = null;
-						if (dc != null) {
-							try {
-								bf = DCAssist.pumpFrame2DC(frame, dc, true).buffer;
-							} catch (InterruptedException e) {
-								e.printStackTrace();
-								continue;
+								stopRecord();
+								startNewFile(filePath);
 							}
-						} else {
-							bf = DCAssist.buildFrame(frame);
+							recordFrame(outBuf, ret);
 						}
-						if (bf != null) {
-							int lim = bf.limit();
-							int pos = bf.position();
-							synchronized (mPDc) {
-								Iterator<PUDataChannel> it = mPDc.iterator();
-								while (it.hasNext()) {
-									PUDataChannel channel = (PUDataChannel) it.next();
-									channel.pumpFrame(bf);
-									bf.limit(lim);
-									bf.position(pos);
+						// save end
+
+						final DC7 dc = mIADc;
+						if (dc == null && !isLocalRecord() && mPDc.isEmpty()) {
+							break;
+						}
+						// send
+						boolean empty = mPDc.isEmpty();
+						if (dc != null || !empty) {
+							Frame frame = new Frame();
+							frame.timeStamp = System.currentTimeMillis();
+							/**
+							 * BlockAlign 2 每个算法帧的包含的字节数 804 0x0324 Channels 1
+							 * 通道个数,一般是1或2 1 0x01 BitsPerSample 1
+							 * PCM格式时的采样精度，一般是8bit或16bit 16 0x10 SamplesPerSec 2
+							 * PCM格式时的采样率除以100。例如：8K采样填80 320 0x0140 AlgFrmNum 2
+							 * 后面算法帧的个数，这个值应该保持不变 01 0x01 ProducerID 2 厂商ID 01
+							 * 0x01 PCMLen 2 一个算法帧解码后的PCM数据长度 2048 0x0800
+							 * Reserved 4 保留 //AudioData AlgFrmNum* BlockAlign
+							 * AlgFrmNum个算法帧，每个算法帧的长度为BlockAlign。客户端解码时，
+							 * 直接将这段数据分成BlockAlign的算法帧
+							 * ，然后分别送入ProducerID对应的解码库进行解码。 AlgID 1 算法类型的ID 0x0a
+							 * Rsv 3 保留
+							 */
+							ByteBuffer buffer = ByteBuffer.allocate(16 + 4 + 4 + ret);
+							buffer.order(ByteOrder.LITTLE_ENDIAN);
+							buffer.putShort((short) (0x0324));
+							buffer.put((byte) 1);
+							buffer.put((byte) 0x10);
+							buffer.putShort((short) (Fr / 100));
+							buffer.putShort((short) 0);
+							buffer.putShort((short) 1);
+							buffer.putShort((short) size);
+							buffer.putInt(0);
+
+							buffer.putInt(ret + 4); // 4 length
+							buffer.put((byte) 0x0a);
+							buffer.put((byte) 0);
+							buffer.putShort((short) 0);
+							buffer.put(outBuf, 0, ret);
+
+							frame.data = buffer.array();
+							frame.offset = 0;
+							frame.length = frame.data.length;
+							frame.keyFrmFlg = 1;
+							frame.type = Frame.FRAME_TYPE_AUDIO;
+							frame.mFrameIdx = loopCount++;
+
+							ByteBuffer bf = null;
+							if (dc != null) {
+								try {
+									bf = DCAssist.pumpFrame2DC(frame, dc, true).buffer;
+								} catch (InterruptedException e) {
+									e.printStackTrace();
+									continue;
+								}
+							} else {
+								bf = DCAssist.buildFrame(frame);
+							}
+							if (bf != null) {
+								int lim = bf.limit();
+								int pos = bf.position();
+								synchronized (mPDc) {
+									Iterator<PUDataChannel> it = mPDc.iterator();
+									while (it.hasNext()) {
+										PUDataChannel channel = (PUDataChannel) it.next();
+										channel.pumpFrame(bf);
+										bf.limit(lim);
+										bf.position(pos);
+									}
 								}
 							}
 						}
 					}
+					mAac.NativeEncodeClose(mEncHandle);
+
+				} catch (Exception e) {
+					e.printStackTrace();
+					if (isLocalRecord()) {
+						stopRecord();
+					}
+				} finally {
+					if (ar != null) {
+						ar.release();
+					}
 				}
-				mAac.NativeEncodeClose(mEncHandle);
-				ar.release();
+
 			}
 		};
 		mIAThread = t;

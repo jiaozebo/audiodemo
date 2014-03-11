@@ -294,6 +294,9 @@ public class ConfigServer extends NanoHTTPD {
 					}
 
 				}.start();
+				PreferenceManager.getDefaultSharedPreferences(mContext).edit()
+						.putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid).putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, pwd)
+						.commit();
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...请切换至新的WIFI再连接。</body></html>");
 			} else if (parms.containsKey("record")) {
@@ -771,7 +774,7 @@ public class ConfigServer extends NanoHTTPD {
 		}
 	}
 
-	long storageAvailable() {
+	public static long storageAvailable() {
 		String state = Environment.getExternalStorageState();
 		if (Environment.MEDIA_MOUNTED.equals(state)) {
 			StatFs sf = new StatFs(G.sRootPath);
@@ -782,7 +785,7 @@ public class ConfigServer extends NanoHTTPD {
 		return -1;
 	}
 
-	float getBaterryPecent(Context context) {
+	public static float getBaterryPecent(Context context) {
 		Intent batteryInfoIntent = context.getApplicationContext().registerReceiver(null,
 				new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 

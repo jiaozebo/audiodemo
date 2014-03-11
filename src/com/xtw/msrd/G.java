@@ -14,9 +14,12 @@ import java.util.List;
 
 import junit.framework.Assert;
 import android.app.Application;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -75,6 +78,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	private static final String KEY_SERVER_PREVIEW_VIDEO = "key_preivew_video";
 	public static final String KEY_HIGH_QUALITY = "key_high_quality";
 	public static final String KEY_WHITE_LIST = "key_white_list";
+
 	public static PUInfo sPUInfo;
 	static {
 		sPUInfo = new PUInfo();
@@ -161,8 +165,10 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			@Override
 			public void onErrorFetched(CRChannel arg0, int arg1) {
 				logout();
-				Intent service = new Intent(G.this, MsrdService.class);
-				startService(service);
+				if (networkAvailable(G.this)) {
+					Intent service = new Intent(G.this, MsrdService.class);
+					startService(service);
+				}
 			}
 		};
 		/**
@@ -172,7 +178,9 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 			@Override
 			public void run() {
-				mChannelCallback.onErrorFetched(null, 0);
+				if (networkAvailable(G.this)) {
+					mChannelCallback.onErrorFetched(null, 0);
+				}
 			}
 		};
 		final SharedPreferences prf = PreferenceManager.getDefaultSharedPreferences(this);
@@ -331,8 +339,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		mLoginStatusChanedCallbacks.remove(callback);
 	}
 
-	public static void startCameraPreview() {
-
+	public static boolean networkAvailable(Context c) {
+		ConnectivityManager connMgr = (ConnectivityManager) c
+				.getSystemService(Context.CONNECTIVITY_SERVICE);
+		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+		return (networkInfo != null && networkInfo.isConnected());
 	}
 
 	public static void stopCameraPreview() {
