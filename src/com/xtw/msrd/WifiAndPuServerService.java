@@ -54,6 +54,14 @@ public class WifiAndPuServerService extends Service {
 		mMyBroadcastReceiver = new MyBroadcastReceiver();
 		registerReceiver(mMyBroadcastReceiver, filter);
 		getPhoneState();
+		G g = (G) getApplication();
+		MyMPUEntity entity  = g.mEntity;
+		if (entity != null) {
+
+			// 默认录像
+			entity.startNewFile();
+			entity.checkThread();	
+		}
 	}
 
 	// 获取信号强度

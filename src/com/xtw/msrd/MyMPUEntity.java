@@ -21,6 +21,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.os.HandlerThread;
 import android.os.Message;
 import android.os.Process;
 import android.util.Log;
@@ -59,9 +60,6 @@ public class MyMPUEntity extends MPUEntity {
 		super(context);
 		File f = new File(G.sRootPath);
 		f.mkdirs();
-		// 默认录像
-		startNewFile(createZipPath());
-		checkThread();
 	}
 
 	protected List<PUDataChannel> mPDc = new ArrayList<PUDataChannel>();
@@ -98,7 +96,7 @@ public class MyMPUEntity extends MPUEntity {
 					}
 			} else if (resType == 1) {// ia
 				if (msg.what == 0x3600) {
-					if (mIAThread == null) {
+					if (isAudioStarted()) {
 						startOrRestart();
 					}
 					addPUDataChannel(pdc);
@@ -126,29 +124,30 @@ public class MyMPUEntity extends MPUEntity {
 		}
 		Thread t = new Thread("AUDIO") {
 			int mIdx = 0;
+			AudioRecord ar = null;
+			private int CC;
+			private int Fr;
 
 			public void run() {
 				Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
-				int Fr = 32000;
-				final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
-						: AudioSource.DEFAULT;
-				int CC = AudioFormat.CHANNEL_IN_STEREO;
-				int BitNum = AudioFormat.ENCODING_PCM_16BIT;
-				int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC, BitNum);
-				Log.d(TAG, String.valueOf(audioBuffer));
-				int size = SIZE;
-				if (size < audioBuffer) {
-					size = audioBuffer * 2;
-				}
-				size = SIZE;
-				AudioRecord ar = null;
 				try {
+					Fr = 32000;
+					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
+							: AudioSource.DEFAULT;
+					CC = AudioFormat.CHANNEL_IN_STEREO;
+					int BitNum = AudioFormat.ENCODING_PCM_16BIT;
+					int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC, BitNum);
+					Log.d(TAG, String.valueOf(audioBuffer));
+					int size = SIZE;
+					if (size < audioBuffer) {
+						size = audioBuffer * 2;
+					}
 					ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
 					ar.startRecording();
 					MainActivity mAac = new MainActivity();
 					long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
-					byte[] readBuf = new byte[size];
-					byte[] outBuf = new byte[size];
+					byte[] readBuf = new byte[SIZE];
+					byte[] outBuf = new byte[SIZE];
 					int read = 0;
 					int loopCount = 0;
 					while (mIAThread != null) {
@@ -162,7 +161,7 @@ public class MyMPUEntity extends MPUEntity {
 						read = 0;
 
 						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
-								outBuf, size);
+								outBuf, SIZE);
 						if (ret <= 0) {
 							continue;
 						}
@@ -171,10 +170,8 @@ public class MyMPUEntity extends MPUEntity {
 							if ((mIdx++ == FRAME_NUMBER_PER_FILE || mResetFile)) {
 								mIdx = 0;
 								mResetFile = false;
-								String filePath = createZipPath();
-
 								stopRecord();
-								startNewFile(filePath);
+								startNewFile();
 							}
 							recordFrame(outBuf, ret);
 						}
@@ -210,7 +207,7 @@ public class MyMPUEntity extends MPUEntity {
 							buffer.putShort((short) (Fr / 100));
 							buffer.putShort((short) 0);
 							buffer.putShort((short) 1);
-							buffer.putShort((short) size);
+							buffer.putShort((short) SIZE);
 							buffer.putInt(0);
 
 							buffer.putInt(ret + 4); // 4 length
@@ -266,6 +263,12 @@ public class MyMPUEntity extends MPUEntity {
 				}
 
 			}
+
+			@Override
+			public synchronized void start() {
+				super.start();
+			}
+
 		};
 		mIAThread = t;
 		t.start();
@@ -431,7 +434,7 @@ public class MyMPUEntity extends MPUEntity {
 		boolean needCheck = (isLocalRecord() != record);
 
 		if (record) {
-			startNewFile(createZipPath());
+			startNewFile();
 		} else {
 			stopRecord();
 		}
@@ -458,7 +461,8 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	public void startNewFile(String filePath) {
+	public void startNewFile() {
+		String filePath = createZipPath();
 		synchronized (mZipOutputLock) {
 			try {
 				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
@@ -481,7 +485,7 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	};
 
-	private synchronized void checkThread() {
+	public synchronized void checkThread() {
 		if (mZipOutput == null && mIADc == null) {
 			stopAudio();
 		} else {
