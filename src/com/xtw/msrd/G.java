@@ -34,6 +34,7 @@ import com.crearo.mpu.sdk.Common;
 import com.crearo.mpu.sdk.MPUHandler;
 import com.crearo.mpu.sdk.MPUHandler.NCCAllback;
 import com.crearo.mpu.sdk.client.PUInfo;
+import com.crearo.puserver.PUServerThread;
 
 public class G extends Application implements OnSharedPreferenceChangeListener {
 	private static final String DEFAULT_PORT = "8958";
@@ -70,7 +71,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	// Executors.newFixedThreadPool(10);
 	public static final Handler sUIHandler = new Handler();
 
-	MyMPUEntity mEntity = null;
+	static MyMPUEntity mEntity = null;
 
 	private static final String TAG = "G";
 
@@ -90,6 +91,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 */
 	private Thread mLoginThread;
 	public static String sRootPath;
+	private static PUServerThread mServer;
+	private static ConfigServer sConfigServer;
 
 	/*
 	 * (non-Javadoc)
@@ -192,6 +195,12 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		prf.registerOnSharedPreferenceChangeListener(this);
 
 		startService(new Intent(this, WifiAndPuServerService.class));
+
+		ConnectivityManager mng = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+		NetworkInfo info = mng.getActiveNetworkInfo();
+		if (info != null && info.isConnected() && info.getType() == ConnectivityManager.TYPE_WIFI) {
+			startServer(this);
+		}
 	}
 
 	public static void initRoot() {
@@ -369,5 +378,36 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			// TODO: handle exception
 		}
 		return result;
+	}
+
+	public static void startServer(Context context) {
+		if (mServer == null) {
+			PUServerThread p = new PUServerThread(context, sPUInfo, 8866);
+			p.start();
+			p.setCallbackHandler(mEntity);
+			mServer = p;
+		}
+		if (sConfigServer == null) {
+			try {
+				sConfigServer = new ConfigServer(context, G.sRootPath);
+				sConfigServer.start();
+			} catch (IOException e) {
+				sConfigServer = null;
+				e.printStackTrace();
+			}
+		}
+
+	}
+
+	public static void stopServer() {
+		if (mServer != null) {
+			mServer.setCallbackHandler(null);
+			mServer.quit();
+			mServer = null;
+		}
+		if (sConfigServer != null) {
+			sConfigServer.stop();
+			sConfigServer = null;
+		}
 	}
 }

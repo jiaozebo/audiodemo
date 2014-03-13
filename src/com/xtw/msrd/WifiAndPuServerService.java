@@ -54,13 +54,12 @@ public class WifiAndPuServerService extends Service {
 		mMyBroadcastReceiver = new MyBroadcastReceiver();
 		registerReceiver(mMyBroadcastReceiver, filter);
 		getPhoneState();
-		G g = (G) getApplication();
-		MyMPUEntity entity  = g.mEntity;
+		MyMPUEntity entity = G.mEntity;
 		if (entity != null) {
 
 			// 默认录像
 			entity.startNewFile();
-			entity.checkThread();	
+			entity.checkThread();
 		}
 	}
 
@@ -201,22 +200,7 @@ public class WifiAndPuServerService extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		try {
-			new ConfigServer(this, G.sRootPath).start();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		PUServerThread thread = new PUServerThread(this, G.sPUInfo, 8866);
-
 		G g = (G) getApplication();
-		MyMPUEntity e = g.mEntity;
-		if (e != null) {
-			thread.setCallbackHandler(e);
-			// e.startOrRestart();
-		}
-		thread.start();
-
 		if (g.checkParam(true)) {
 			startService(new Intent(this, MsrdService.class));
 		}

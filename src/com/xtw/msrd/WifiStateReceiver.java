@@ -36,7 +36,9 @@ public class WifiStateReceiver extends BroadcastReceiver {
 			if (prevState == WifiManager.WIFI_STATE_ENABLED
 					&& wifiState != WifiManager.WIFI_STATE_ENABLED) {
 				//
-
+				// wifi 关闭了
+				G.stopServer();
+				
 			} else if (prevState != WifiManager.WIFI_STATE_ENABLED
 					&& wifiState == WifiManager.WIFI_STATE_ENABLED) {
 				// wifi 开启了
@@ -64,39 +66,46 @@ public class WifiStateReceiver extends BroadcastReceiver {
 					} else {
 						ssid = Wifi.getCurrentSSID(context);
 					}
+					boolean needChangeWifi = false;
 					// 自动连接一个默认的WIFI.
 					String defaultSSID = PreferenceManager.getDefaultSharedPreferences(context)
 							.getString(KEY_DEFAULT_SSID, "123456");
 					if (defaultSSID.equals(ssid)
 							|| String.format("\"%s\"", defaultSSID).equals(ssid)) {
-						return;
-					}
-					String defaultPwd = PreferenceManager.getDefaultSharedPreferences(context)
-							.getString(KEY_DEFAULT_SSID_PWD, null);
-					if ("123456".equals(defaultSSID)) {
-						defaultPwd = "58894436";
-					}
-					Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(context);
-					if (configuredNetworks != null) {
-						Iterator<ScanResult> it = configuredNetworks.iterator();
-						while (it.hasNext()) {
-							ScanResult cfg = (ScanResult) it.next();
-							String sSID = cfg.SSID;
-							if (sSID.startsWith("\"")) {
-								sSID = sSID.substring(1);
-							}
-							if (sSID.endsWith("\"")) {
-								sSID = sSID.substring(0, sSID.length() - 1);
-							}
+					} else {
+						String defaultPwd = PreferenceManager.getDefaultSharedPreferences(context)
+								.getString(KEY_DEFAULT_SSID_PWD, null);
+						if ("123456".equals(defaultSSID)) {
+							defaultPwd = "58894436";
+						}
+						Iterable<ScanResult> configuredNetworks = Wifi
+								.getConfiguredNetworks(context);
+						if (configuredNetworks != null) {
+							Iterator<ScanResult> it = configuredNetworks.iterator();
+							while (it.hasNext()) {
+								ScanResult cfg = (ScanResult) it.next();
+								String sSID = cfg.SSID;
+								if (sSID.startsWith("\"")) {
+									sSID = sSID.substring(1);
+								}
+								if (sSID.endsWith("\"")) {
+									sSID = sSID.substring(0, sSID.length() - 1);
+								}
 
-							if (sSID.equals(defaultSSID)) {
-								// 连接该wifi
-								Wifi.connectWifi(context, sSID, defaultPwd);
-								break;
+								if (sSID.equals(defaultSSID)) {
+									// 连接该wifi
+									Wifi.connectWifi(context, sSID, defaultPwd);
+									needChangeWifi = true;
+									break;
+								}
 							}
 						}
 					}
-				} else if (state == State.DISCONNECTING) { // WIFI关闭，如果使能，则开启3G
+					if (!needChangeWifi) {
+						G.startServer(context);
+					}
+				} else { // WIFI关闭
+					G.stopServer();
 				}
 			}
 		}

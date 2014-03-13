@@ -96,7 +96,7 @@ public class MyMPUEntity extends MPUEntity {
 					}
 			} else if (resType == 1) {// ia
 				if (msg.what == 0x3600) {
-					if (isAudioStarted()) {
+					if (!isAudioStarted()) {
 						startOrRestart();
 					}
 					addPUDataChannel(pdc);
@@ -124,17 +124,15 @@ public class MyMPUEntity extends MPUEntity {
 		}
 		Thread t = new Thread("AUDIO") {
 			int mIdx = 0;
-			AudioRecord ar = null;
-			private int CC;
-			private int Fr;
 
 			public void run() {
 				Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+				AudioRecord ar = null;
 				try {
-					Fr = 32000;
+					int Fr = 32000;
 					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
 							: AudioSource.DEFAULT;
-					CC = AudioFormat.CHANNEL_IN_STEREO;
+					int CC = AudioFormat.CHANNEL_IN_STEREO;
 					int BitNum = AudioFormat.ENCODING_PCM_16BIT;
 					int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC, BitNum);
 					Log.d(TAG, String.valueOf(audioBuffer));
@@ -178,7 +176,7 @@ public class MyMPUEntity extends MPUEntity {
 						// save end
 
 						final DC7 dc = mIADc;
-						if (dc == null && !isLocalRecord() && mPDc.isEmpty()) {
+						if (!shouldContinue()) {
 							break;
 						}
 						// send
@@ -485,10 +483,19 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	};
 
+	/**
+	 * 判断是否满足继续采集的条件
+	 * 
+	 * @return
+	 */
+	private boolean shouldContinue() {
+		return mIADc != null || isLocalRecord() || !mPDc.isEmpty();
+	}
+
 	public synchronized void checkThread() {
-		if (mZipOutput == null && mIADc == null) {
+		if (!shouldContinue()) {
 			stopAudio();
-		} else {
+		} else if (!isAudioStarted()) {
 			startOrRestart();
 		}
 	}
