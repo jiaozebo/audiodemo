@@ -143,23 +143,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				android.os.Build.MODEL);
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
-		File root = new File(sRootPath);
-		root.mkdirs();
-		try {
-			InputStream is = getAssets().open("ic_launcher.png");
-			FileOutputStream fos = new FileOutputStream(root + "/ic.ico");
-			byte[] buffer = new byte[1024];
-			int size = 0;
-			while ((size = is.read(buffer)) != -1) {
-				fos.write(buffer, 0, size);
-			}
-			is.close();
-			fos.close();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-
 		/**
 		 * 断线重连
 		 */
@@ -186,6 +169,26 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				}
 			}
 		};
+		if (sRootPath == null) {
+			return;
+		}
+		File root = new File(sRootPath);
+		root.mkdirs();
+		try {
+			InputStream is = getAssets().open("ic_launcher.png");
+			FileOutputStream fos = new FileOutputStream(root + "/ic.ico");
+			byte[] buffer = new byte[1024];
+			int size = 0;
+			while ((size = is.read(buffer)) != -1) {
+				fos.write(buffer, 0, size);
+			}
+			is.close();
+			fos.close();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
 		final SharedPreferences prf = PreferenceManager.getDefaultSharedPreferences(this);
 		mAddres = prf.getString(KEY_SERVER_ADDRESS, DEFAULT_ADDRESS);
 		mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
@@ -201,6 +204,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		if (info != null && info.isConnected() && info.getType() == ConnectivityManager.TYPE_WIFI) {
 			startServer(this);
 		}
+
 	}
 
 	public static void initRoot() {

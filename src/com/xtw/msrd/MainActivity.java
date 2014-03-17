@@ -5,7 +5,6 @@ import java.util.List;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.net.ConnectivityManager;
@@ -21,13 +20,12 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.crearo.config.Apn;
-import com.crearo.config.Connectivity;
 import com.crearo.config.Apn.ApnNode;
+import com.crearo.config.Connectivity;
 import com.crearo.mpu.sdk.client.MPUEntity;
 import com.crearo.puserver.PUServerThread;
 import com.xtw.msrd.G.LoginStatus;
