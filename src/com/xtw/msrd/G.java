@@ -102,6 +102,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	@Override
 	public void onCreate() {
 		super.onCreate();
+		initRoot();
+		if (sRootPath == null) {
+			return;
+		}
+
 		Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
 
 			@Override
@@ -109,7 +114,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				ex.printStackTrace();
 				try {
 					FileOutputStream os = new FileOutputStream(new File(String.format("%s/%s",
-							sRootPath, "mpudemo.txt")), true);
+							sRootPath, "audiolog.txt")), true);
 					SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH.mm.ss");
 					String dateStr = sdf.format(new Date());
 					os.write(dateStr.getBytes());
@@ -130,7 +135,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		};
 		// Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
-		initRoot();
 		mEntity = new MyMPUEntity(this);
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), android.os.Build.MODEL);
@@ -169,9 +173,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				}
 			}
 		};
-		if (sRootPath == null) {
-			return;
-		}
 		File root = new File(sRootPath);
 		root.mkdirs();
 		try {
@@ -214,7 +215,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			return;
 		}
 		// 使用版本号作为设备的名称
-		sRootPath = String.format("%s/%s", paths[0], "MPURecord");
+		sRootPath = String.format("%s/%s", paths[0], "audio");
 	}
 
 	@Override
