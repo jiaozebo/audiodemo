@@ -60,7 +60,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 	public static String mAddres;
 	public static String mPort;
-	public static boolean mFixAddr, mPreviewVideo, sHighQuality;
+	public static boolean mFixAddr, mPreviewVideo;
 
 	/**
 	 * 0表示手动上线，1表示主动上线
@@ -79,6 +79,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	private static final String KEY_SERVER_PREVIEW_VIDEO = "key_preivew_video";
 	public static final String KEY_HIGH_QUALITY = "key_high_quality";
 	public static final String KEY_WHITE_LIST = "key_white_list";
+	public static final String KEY_AUDIO_FREQ = "key_audio_freq";
 
 	public static PUInfo sPUInfo;
 	static {
@@ -130,15 +131,19 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-
+				System.exit(-1);
 			}
 		};
-		// Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
+		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
 		mEntity = new MyMPUEntity(this);
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), android.os.Build.MODEL);
-		sPUInfo.puid = Common.getPuid(this);// "151123456789123456";
+		sPUInfo.puid = pref.getString("key_puid", null);
+		if (sPUInfo.puid == null) {
+			sPUInfo.puid = Common.getPuid(this);
+			pref.edit().putString("key_puid", sPUInfo.puid).commit();
+		}
 		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(),
 				android.os.Build.MODEL);
 		sPUInfo.mMicName = pref
@@ -155,7 +160,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			@Override
 			public void onErrorFetched(CRChannel arg0, int arg1) {
 				logout();
-				if (networkAvailable(G.this)) {
+				if (networkAvailable(G.this) && checkParam(false)) {
 					Intent service = new Intent(G.this, MsrdService.class);
 					startService(service);
 				}
@@ -195,7 +200,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
 		mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
 		mPreviewVideo = prf.getBoolean(KEY_SERVER_PREVIEW_VIDEO, false);
-		sHighQuality = prf.getBoolean(KEY_HIGH_QUALITY, true);
 		prf.registerOnSharedPreferenceChangeListener(this);
 
 		startService(new Intent(this, WifiAndPuServerService.class));
@@ -223,19 +227,18 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		if (key.equals(KEY_SERVER_ADDRESS) || key.equals(KEY_SERVER_PORT)) {
 			mAddres = prf.getString(KEY_SERVER_ADDRESS, null);
 			mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
-			logout();
-			startService(new Intent(this, MsrdService.class));
+			if (TextUtils.isEmpty(mAddres)) {
+				logoutAndEndLoop();
+			} else {
+				logout();
+				startService(new Intent(this, MsrdService.class));
+			}
 		} else if (key.equals(KEY_SERVER_FIXADDR)) {
 			mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, false);
 			logout();
 			startService(new Intent(this, MsrdService.class));
 		} else if (key.equals(KEY_SERVER_PREVIEW_VIDEO)) {
 			mPreviewVideo = prf.getBoolean(key, false);
-		} else if (key.equals(KEY_HIGH_QUALITY)) {
-			sHighQuality = prf.getBoolean(key, true);
-			MyMPUEntity myMPUEntity = (MyMPUEntity) mEntity;
-			myMPUEntity.setBitRate(sHighQuality ? 64000 : 32000);
-			myMPUEntity.startOrRestart();
 		}
 	}
 
@@ -308,24 +311,18 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				mEntity.postDelayed(mLoginLoopTask, 3000);
 			}
 		} else {
-			mEntity.post(new Runnable() {
-
-				@Override
-				public void run() {
-					setLoginStatus(LoginStatus.STT_LOGINED);
-				}
-			});
+			setLoginStatus(LoginStatus.STT_LOGINED);
 		}
 
 	}
 
 	public void logout() {
+		setLoginStatus(LoginStatus.STT_PRELOGIN);
 		mEntity.post(new Runnable() {
 
 			@Override
 			public void run() {
 				mEntity.logout();
-				setLoginStatus(LoginStatus.STT_PRELOGIN);
 			}
 		});
 	}

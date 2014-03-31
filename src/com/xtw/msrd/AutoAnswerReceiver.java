@@ -43,8 +43,7 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		// Check phone state
 		String phone_state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
 		String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-		G g = (G) context.getApplicationContext();
-		MyMPUEntity entity = g.mEntity;
+		MyMPUEntity entity = G.mEntity;
 		String path = String.format("%s/%s", G.sRootPath, "mpudemo.txt");
 		CommonMethod.save2File(phone_state, path, true);
 		if (phone_state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {

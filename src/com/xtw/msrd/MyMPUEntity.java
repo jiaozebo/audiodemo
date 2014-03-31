@@ -16,14 +16,15 @@ import java.util.Locale;
 import nochump.util.zip.EncryptZipEntry;
 import nochump.util.zip.EncryptZipOutput;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
-import android.os.HandlerThread;
 import android.os.Message;
 import android.os.Process;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import c7.CRChannel;
 import c7.DC7;
@@ -45,12 +46,7 @@ public class MyMPUEntity extends MPUEntity {
 	private Thread mIAThread;
 	private DC7 mIADc;
 	private DC7 mIVDc;
-	private int mBitRate = 64000;
 	private boolean mResetFile = false;
-
-	public void setBitRate(int br) {
-		mBitRate = br;
-	}
 
 	public void resetFile() {
 		mResetFile = true;
@@ -118,7 +114,7 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	public void startOrRestart() {
+	private void startOrRestart() {
 		if (isAudioStarted()) {
 			stopAudio();
 		}
@@ -129,7 +125,10 @@ public class MyMPUEntity extends MPUEntity {
 				Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
 				AudioRecord ar = null;
 				try {
-					int Fr = 32000;
+					SharedPreferences preferences = PreferenceManager
+							.getDefaultSharedPreferences(mContext);
+					int Fr = preferences.getInt(G.KEY_AUDIO_FREQ, 24000);
+					int bitRate = preferences.getBoolean(G.KEY_HIGH_QUALITY, true) ? 64000 : 32000;
 					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
 							: AudioSource.DEFAULT;
 					int CC = AudioFormat.CHANNEL_IN_STEREO;
@@ -143,7 +142,7 @@ public class MyMPUEntity extends MPUEntity {
 					ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
 					ar.startRecording();
 					MainActivity mAac = new MainActivity();
-					long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, mBitRate);
+					long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, bitRate);
 					byte[] readBuf = new byte[SIZE];
 					byte[] outBuf = new byte[SIZE];
 					int read = 0;
@@ -428,6 +427,11 @@ public class MyMPUEntity extends MPUEntity {
 		return (mZipOutput != null);
 	}
 
+	/**
+	 * 调用该函数，如果必要的话，会启动音频
+	 * 
+	 * @param record
+	 */
 	public void setLocalRecord(boolean record) {
 		boolean needCheck = (isLocalRecord() != record);
 
@@ -459,13 +463,13 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	public void startNewFile() {
+	private void startNewFile() {
 		String filePath = createZipPath();
 		synchronized (mZipOutputLock) {
 			try {
 				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
 				mCurrentRecordFileName = new File(filePath).getName();
-				filePath = filePath.replace(".zip", ".aac");
+				filePath = filePath.replace(".zip", ".wav");
 				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();

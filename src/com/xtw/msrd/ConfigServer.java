@@ -7,8 +7,10 @@ import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -45,6 +47,7 @@ import com.crearo.puserver.PUCommandChannel;
 import com.xtw.msrd.G.LoginStatus;
 
 public class ConfigServer extends NanoHTTPD {
+	private static final String PWD = "123";
 	private static final String TAG = "Config";
 	private String mRoot;
 	private Context mContext;
@@ -68,7 +71,6 @@ public class ConfigServer extends NanoHTTPD {
 				StringBuilder sb = new StringBuilder();
 				String addr = parms.get("address");
 				String port = parms.get("port");
-				boolean highQuality = !TextUtils.isEmpty(parms.get("quality"));
 				int nPort = -1;
 				if (TextUtils.isEmpty(addr) || TextUtils.isEmpty(port)) {
 					sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>配置参数不合法。</body></html>");
@@ -83,12 +85,27 @@ public class ConfigServer extends NanoHTTPD {
 						Editor edit = PreferenceManager.getDefaultSharedPreferences(mContext)
 								.edit();
 						boolean ret = edit.putString(G.KEY_SERVER_ADDRESS, addr)
-								.putString(G.KEY_SERVER_PORT, port)
-								.putBoolean(G.KEY_HIGH_QUALITY, highQuality).commit();
+								.putString(G.KEY_SERVER_PORT, port).commit();
 						Log.e(TAG, "config server :" + ret);
 						sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>参数修改成功，已退出登录!</body></html>");
 					}
 				}
+				return new Response(sb.toString());
+			} else if (parms.containsKey("audio_cfg")) {
+				boolean highQuality = !TextUtils.isEmpty(parms.get("quality"));
+				String audio_fre = parms.get("audio_fre");
+				float f = Float.parseFloat(audio_fre);
+				int fre = (int) (f * 1000f);
+				Editor edit = PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+				edit.putBoolean(G.KEY_HIGH_QUALITY, highQuality).putInt(G.KEY_AUDIO_FREQ, fre)
+						.commit();
+				StringBuffer sb = new StringBuffer();
+				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
+
+				MyMPUEntity entity = (MyMPUEntity) G.mEntity;
+				boolean record = entity.isLocalRecord();
+				entity.stopAudio();
+				entity.setLocalRecord(record);
 				return new Response(sb.toString());
 			} else if (parms.containsKey("login") || parms.containsKey("query_login_status")) {
 				// 登录
@@ -131,19 +148,6 @@ public class ConfigServer extends NanoHTTPD {
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/?white_list=1' />\n<body>正在处理...</body></html>");
 			} else if (parms.containsKey("white_list")) { // 白名单
-
-				// <html xmlns='http://www.w3.org/1999/xhtml'>
-				// <meta http-equiv='Content-Type' content='text/html;
-				// charset=utf-8' />
-				// <body>
-				// <label >设备的WIFI环境:</label><br/>
-				// XMAL <a href='?delete_white_number=XMAL'>删除</a><br/><br />
-				// SAGS<br />
-				// <input type='number' name='phone_number' value=''/>
-				// <input type='submit' name='wifi'value='添加新号码'>
-				// </form>
-				// </body>
-				// </html>
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
 				sb.append("<body>\n<form method='post' action=''>\n<label >来电白名单:</label><br/>\n");
@@ -227,25 +231,6 @@ public class ConfigServer extends NanoHTTPD {
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>"
 								+ (id != -1 ? "成功." : "未成功") + "</body></html>");
 			} else if (parms.containsKey("apn_config")) {
-
-				// <html>
-				// <meta http-equiv='Content-Type' content='text/html;
-				// charset=utf-8' />
-				// <body>
-				// <form method='post' action=''>
-				// <label >来电白名单:</label><br/>
-				// <label>名称:</label>
-				// <input type='text' name='name' value=''/>
-				// <label>apn:</label>
-				// <input type="text" name='apn' value=''/>
-				// <label>用户:</label>
-				// <input type="text" name='user' value=''/>
-				// <label>密码:</label>
-				// <input type="text" name='pwd' value=''/>
-				// <br/>
-				// <input type='submit' name='add_apn' value='确定'>
-				// </form></body>
-				// </html>
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
 				sb.append("<body>\n<form method='post' action=''>\n<label >apn:</label><br/>\n");
@@ -263,6 +248,16 @@ public class ConfigServer extends NanoHTTPD {
 
 				sb.append("</form>\n</body>\n</html>");
 				return new Response(sb.toString());
+			} else if (parms.containsKey("switch_apn")) {
+				String name = parms.get("apn_name");
+				int apn = Apn.getApn(mContext, name);
+				if (apn != -1) {
+					Apn.setDefault(mContext, apn);
+				}
+				return new Response(
+						String.format(
+								"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=?confirm=1&pwd=%s' />\n<body>正在处理...</body></html>",
+								PWD));
 			} else if (parms.containsKey("list_allfiles_xml")) {
 				String xml = null;
 				try {
@@ -295,20 +290,21 @@ public class ConfigServer extends NanoHTTPD {
 
 				}.start();
 				PreferenceManager.getDefaultSharedPreferences(mContext).edit()
-						.putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid).putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, pwd)
-						.commit();
+						.putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid)
+						.putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, pwd).commit();
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...请切换至新的WIFI再连接。</body></html>");
 			} else if (parms.containsKey("record")) {
 				final String record_state = parms.get("record_state");
-				G g = (G) mContext.getApplicationContext();
-				MyMPUEntity myMPUEntity = g.mEntity;
+				MyMPUEntity myMPUEntity = G.mEntity;
 				myMPUEntity.setLocalRecord(record_state.equals("on"));
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...</body></html>");
 			} else if (parms.containsKey("confirm")) {
 				final String pwd = parms.get("pwd");
-				if (pwd.equals("123")) {
+				if (pwd.equals(PWD)) {
+					SharedPreferences pref = PreferenceManager
+							.getDefaultSharedPreferences(mContext);
 					StringBuilder sb = new StringBuilder();
 					sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
 					sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
@@ -321,6 +317,30 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("<br/>");
 					sb.append("\t\t\t</form>\n");
 
+					// 切换APN
+					sb.append("\t\t\t<form method='post' action=''><br/>\n");
+					sb.append("\t\t\t<h3 style='margin:0;padding:0'>切换APN</h3>\n");
+					List<ApnNode> nodes = new ArrayList<Apn.ApnNode>();
+					Apn.getAll(mContext, nodes);
+					ApnNode defaultApn = Apn.getDefaultApn(mContext);
+					if (defaultApn == null) {
+						defaultApn = new ApnNode();
+					}
+					Iterator<Apn.ApnNode> it = nodes.iterator();
+					while (it.hasNext()) {
+						Apn.ApnNode node = (Apn.ApnNode) it.next();
+						sb.append(node.name);
+						sb.append("<input type='radio' name='apn_name' ");
+						String valueString = String.format("value='%s'", node.name);
+						sb.append(valueString);
+						if (defaultApn.name.equals(node.name)) {
+							sb.append("checked='checked'");
+						}
+						sb.append("/><br />");
+					}
+					sb.append("\t\t\t<input type='submit' name='switch_apn' value='确定'><br/></form>\n");
+
+					// 平台地址
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>平台</h3>\n");
 					sb.append(String.format(
@@ -328,13 +348,57 @@ public class ConfigServer extends NanoHTTPD {
 							G.mAddres));
 					sb.append(String.format(
 							"\t\t\t\t端口: <input type='number' name='port' value='%s'/>\n", G.mPort));
-					if (G.sHighQuality) {
+					sb.append("\t\t\t\t<input type='submit' value='配置' />\n");
+					sb.append("\t\t\t</form>\n");
+
+					// 音频质量
+
+					sb.append("\t\t\t<form  method='post' action=''>\n");
+					sb.append("\t\t\t<h3 style='margin:0;padding:0'>音频</h3>\n");
+					int freq = PreferenceManager.getDefaultSharedPreferences(mContext).getInt(
+							G.KEY_AUDIO_FREQ, 24000);
+					sb.append(String.format(
+							"\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
+							freq == 8000 ? "checked='checked'" : ""));
+					sb.append(String.format(
+							"\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
+							freq == 16000 ? "checked='checked'" : ""));
+					sb.append(String.format(
+							"\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
+							freq == 24000 ? "checked='checked'" : ""));
+					sb.append(String
+							.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
+							freq == 44100 ? "checked='checked'" : ""));
+					if (pref.getBoolean(G.KEY_HIGH_QUALITY, true)) {
 						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
 					} else {
 						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality'/><br />\n");
 					}
-					sb.append("\t\t\t\t<input type='submit' value='配置' />\n");
+					sb.append("\t\t\t\t<input type='submit' name='audio_cfg' value='配置' />\n");
 					sb.append("\t\t\t</form>\n");
+
+					// <form method='post' action=''>
+					// <h3 style='margin:0;padding:0'>平台</h3>
+					// 服务器IP地址: <input type='text' name='address'
+					// value='58.211.11.100'/>
+					// 端口: <input type='number' name='port' value='8958'/><br />
+					// <input type='submit' value='配置' />
+					// </form>
+					//
+					// <form method='post' action=''>
+					// <h3 style='margin:0;padding:0'>音频</h3>
+					// 8khz<input type='radio' name='audio_fre' value='8'/>
+					// 16khz<input type='radio' name='audio_fre' value='16'/><br
+					// />
+					// 24khz<input type='radio' name='audio_fre' value='24'/>
+					// 44.1khz<input type='radio' name='audio_fre'
+					// value='44.1'/><br />
+					// 高品质编码：<input type='checkbox' name='quality'
+					// checked='1'/><br />
+					// <input type='submit' name='switch_audio'
+					// value='确定'><br/></form>
+					// <form method='post' action=''>
+					// 登录状态
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>控制模块登录或退出“3G侦控平台”</h3>\n");
 					sb.append("\t\t\t\t<input type='submit' name='login' value='登录'>\n");
@@ -348,9 +412,9 @@ public class ConfigServer extends NanoHTTPD {
 					if (configuredNetworks != null) {
 						sb.append("\t\t\t<form method='post' action=''>\n");
 						sb.append("\t\t<h3 style='margin:0;padding:0'>周边WIFI接入点名称:</h3>\n");
-						Iterator<ScanResult> it = configuredNetworks.iterator();
-						while (it.hasNext()) {
-							ScanResult cfg = (ScanResult) it.next();
+						Iterator<ScanResult> it1 = configuredNetworks.iterator();
+						while (it1.hasNext()) {
+							ScanResult cfg = (ScanResult) it1.next();
 							String sSID = cfg.SSID;
 							if (sSID.startsWith("\"")) {
 								sSID = sSID.substring(1);
