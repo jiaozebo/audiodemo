@@ -18,6 +18,9 @@
 
 package com.xtw.msrd;
 
+import java.io.File;
+import java.io.FileOutputStream;
+
 import util.CommonMethod;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -44,7 +47,8 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		String phone_state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
 		String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 		MyMPUEntity entity = G.mEntity;
-		String path = String.format("%s/%s", G.sRootPath, "mpudemo.txt");
+		
+		String path = String.format("%s/%s", G.sRootPath, "audiolog.txt");
 		CommonMethod.save2File(phone_state, path, true);
 		if (phone_state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {
 			String white_list = prefs.getString(G.KEY_WHITE_LIST, null);

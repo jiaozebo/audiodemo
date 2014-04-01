@@ -21,6 +21,7 @@ import com.crearo.config.Wifi;
 
 public class WifiStateReceiver extends BroadcastReceiver {
 
+	
 	private static final String tag = "WifiStateReceiver";
 	public static final String KEY_DEFAULT_SSID = "key_default_ssid";
 	public static final String KEY_DEFAULT_SSID_PWD = "key_default_ssid_pwd";
@@ -69,15 +70,12 @@ public class WifiStateReceiver extends BroadcastReceiver {
 					boolean needChangeWifi = false;
 					// 自动连接一个默认的WIFI.
 					String defaultSSID = PreferenceManager.getDefaultSharedPreferences(context)
-							.getString(KEY_DEFAULT_SSID, "123456");
+							.getString(KEY_DEFAULT_SSID, G.DEFAULT_SSID);
 					if (defaultSSID.equals(ssid)
 							|| String.format("\"%s\"", defaultSSID).equals(ssid)) {
 					} else {
 						String defaultPwd = PreferenceManager.getDefaultSharedPreferences(context)
-								.getString(KEY_DEFAULT_SSID_PWD, null);
-						if ("123456".equals(defaultSSID)) {
-							defaultPwd = "58894436";
-						}
+								.getString(KEY_DEFAULT_SSID_PWD, G.DEFAULT_SSID_PWD);
 						Iterable<ScanResult> configuredNetworks = Wifi
 								.getConfiguredNetworks(context);
 						if (configuredNetworks != null) {

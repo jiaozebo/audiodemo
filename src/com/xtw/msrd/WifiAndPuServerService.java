@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
@@ -24,6 +25,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.crearo.config.Apn;
 import com.xtw.msrd.G.LoginStatus;
 
 /**
@@ -108,6 +110,9 @@ public class WifiAndPuServerService extends Service {
 
 	private class MyBroadcastReceiver extends BroadcastReceiver {
 
+		/**
+		 * 分钟数
+		 */
 		public static final String KEY_AIR_PLANE_TIME = "KEY_AIR_PLANE_TIME";
 		Runnable mCloseAirPlane = new Runnable() {
 
@@ -123,10 +128,14 @@ public class WifiAndPuServerService extends Service {
 
 			@Override
 			public void run() {
-				setAirplaneMode(true);
-				// 开启一定时间后关闭。
 				int delayMillis = PreferenceManager.getDefaultSharedPreferences(
 						WifiAndPuServerService.this).getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
+				if (delayMillis < 60000) { //
+					return;
+				}
+				setAirplaneMode(true);
+				G.mEntity.setLocalRecord(false);
+				// 开启一定时间后关闭。
 				sHandler.postDelayed(mCloseAirPlane, delayMillis);
 			}
 		};
@@ -155,8 +164,10 @@ public class WifiAndPuServerService extends Service {
 							return;
 						}
 						String cmdCode = checkMsg(strMsgBody);
-						if (TextUtils.isEmpty(cmdCode) && !"error".equals(strMsgBody)) {
-							sendSMS(strMsgSrc, "error");
+						if (TextUtils.isEmpty(cmdCode)) {
+							if (!"error".equals(strMsgBody)) {
+								sendSMS(strMsgSrc, "error");
+							}
 							return;
 						}
 						if (cmdCode.startsWith("*xgmm#")) {
@@ -184,7 +195,46 @@ public class WifiAndPuServerService extends Service {
 						} else if (cmdCode.endsWith("xhcx#")) { // 信号查询
 							sendSMS(strMsgSrc, String.valueOf(getSignal()));
 						} else if (cmdCode.endsWith("ztcx#")) { // 状态查询
-							// sendSMS(strMsgSrc, String.valueOf(getSignal()));
+							// 1.目前使用的APN接入点名称
+							// 2.服务器ip地址
+							// 3.目前数据链路是3G还是WIFI
+							// 4.模块目前登陆平台的状态（登陆、未登录、登录中）
+							// 5.模块本地录音功能是打开还是关闭状态
+							// 6.是否采用高品质压缩比传输
+							// 7.采样率数值
+							// 8.白名单手机号有哪些
+							SharedPreferences pref = PreferenceManager
+									.getDefaultSharedPreferences(WifiAndPuServerService.this);
+							ConnectivityManager mng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+							String networkName = "不可用";
+							NetworkInfo info = mng.getActiveNetworkInfo();
+							if (info != null && info.isAvailable()) {
+								networkName = info.getTypeName();
+							} else {
+								Log.d("mark", "没有可用网络");
+							}
+							String loginState = "未登录";
+							if (G.getLoginStatus() == LoginStatus.STT_LOGINED) {
+								loginState = "已登录";
+							} else if (G.getLoginStatus() == LoginStatus.STT_LOGINING) {
+								loginState = "登录中";
+							}
+							String state = String.format(
+									"地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
+									pref.getString(G.KEY_SERVER_ADDRESS, ""),
+									pref.getString(G.KEY_SERVER_PORT, "0"), networkName,
+									loginState, G.mEntity.isLocalRecord() ? "开启" : "关闭",
+									pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
+									pref.getInt(G.KEY_AUDIO_FREQ, 24000),
+									pref.getString(G.KEY_WHITE_LIST, ""));
+							if (G.USE_APN) {
+								state = String.format("apn:%s,",
+										Apn.getDefaultApn(WifiAndPuServerService.this
+												.getApplication()).name)
+										+ state;
+							}
+							Log.w("SMS", state);
+							sendSMS(strMsgSrc, state);
 						} else if (cmdCode.matches("ds\\d+\\#")) { // 定时设置
 							String stime = cmdCode.substring(2, cmdCode.length() - 1);
 							int time = Integer.parseInt(stime);
@@ -193,11 +243,19 @@ public class WifiAndPuServerService extends Service {
 									.edit().putInt(KEY_AIR_PLANE_TIME, time).commit();
 							sendSMS(strMsgSrc, "time:" + time);
 						} else if (cmdCode.endsWith("jmks#")) { // 静默开始
-							sendSMS(strMsgSrc, "yes");
+							sendSMS(strMsgSrc,"sleep after 30 seconds");
 							sHandler.postDelayed(mOpenAirPlane, 30 * 1000);// 半分钟后开始
 						} else if (cmdCode.endsWith("jmtz#")) { // 静默停止
 							// mOpenAirPlane.run();
 							sHandler.removeCallbacks(mOpenAirPlane);
+							G.mEntity.setLocalRecord(true);
+							sendSMS(strMsgSrc, "stop sleep");
+						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
+							G.mEntity.setLocalRecord(true);
+							sendSMS(strMsgSrc, "start record");
+						} else if (cmdCode.endsWith("tzly#")) {// 停止录音
+							G.mEntity.setLocalRecord(false);
+							sendSMS(strMsgSrc, "stop record");
 						} else if (cmdCode.endsWith("sbcq#")) { // 设备重启
 							// Intent i1 = new Intent(Intent.ACTION_REBOOT);
 							// i1.putExtra("nowait", 1);
@@ -211,7 +269,6 @@ public class WifiAndPuServerService extends Service {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}
-
 						}
 					}
 				}

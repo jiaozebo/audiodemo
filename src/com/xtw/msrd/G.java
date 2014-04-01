@@ -44,7 +44,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		STT_PRELOGIN, STT_LOGINING, STT_LOGINED;
 	}
 
-	private volatile LoginStatus mLoginStatus = LoginStatus.STT_PRELOGIN;
+	/**
+	 * true l,false f
+	 */
+	public static final boolean USE_APN = false;
+	private volatile static LoginStatus mLoginStatus = LoginStatus.STT_PRELOGIN;
 	private final List<Runnable> mLoginStatusChanedCallbacks = new ArrayList<Runnable>();
 
 	public static final String KEY_SERVER_ADDRESS = "KEY_SERVER_ADDRESS";
@@ -81,6 +85,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static final String KEY_WHITE_LIST = "key_white_list";
 	public static final String KEY_AUDIO_FREQ = "key_audio_freq";
 
+	public static final String DEFAULT_SSID = USE_APN ? "123456" : "LiYinConfigure-WiFi007";
+	public static final String DEFAULT_SSID_PWD = USE_APN ? "58894436" : "admin123";
 	public static PUInfo sPUInfo;
 	static {
 		sPUInfo = new PUInfo();
@@ -258,7 +264,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		return true;
 	}
 
-	public LoginStatus getLoginStatus() {
+	public static LoginStatus getLoginStatus() {
 		return mLoginStatus;
 	}
 

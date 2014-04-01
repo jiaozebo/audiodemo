@@ -311,34 +311,37 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t<body>\n");
 					sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
 
-					sb.append("\t\t\t<form method='post' action=''><br/>\n");
-					sb.append("\t\t<h3 style='margin:0;padding:0'>配置APN</h3>\n");
-					sb.append("<label>名称:</label><input type='text' name='name' value=''/><label>卡号后四位:</label><input type='number' name='number' value=''/><input type='submit' name='add_apn' value='添加'>");
-					sb.append("<br/>");
-					sb.append("\t\t\t</form>\n");
+					if (G.USE_APN) {
+						// 添加APN
+						sb.append("\t\t\t<form method='post' action=''><br/>\n");
+						sb.append("\t\t<h3 style='margin:0;padding:0'>配置APN</h3>\n");
+						sb.append("<label>名称:</label><input type='text' name='name' value=''/><label>卡号后四位:</label><input type='number' name='number' value=''/><input type='submit' name='add_apn' value='添加'>");
+						sb.append("<br/>");
+						sb.append("\t\t\t</form>\n");
 
-					// 切换APN
-					sb.append("\t\t\t<form method='post' action=''><br/>\n");
-					sb.append("\t\t\t<h3 style='margin:0;padding:0'>切换APN</h3>\n");
-					List<ApnNode> nodes = new ArrayList<Apn.ApnNode>();
-					Apn.getAll(mContext, nodes);
-					ApnNode defaultApn = Apn.getDefaultApn(mContext);
-					if (defaultApn == null) {
-						defaultApn = new ApnNode();
-					}
-					Iterator<Apn.ApnNode> it = nodes.iterator();
-					while (it.hasNext()) {
-						Apn.ApnNode node = (Apn.ApnNode) it.next();
-						sb.append(node.name);
-						sb.append("<input type='radio' name='apn_name' ");
-						String valueString = String.format("value='%s'", node.name);
-						sb.append(valueString);
-						if (defaultApn.name.equals(node.name)) {
-							sb.append("checked='checked'");
+						// 切换APN
+						sb.append("\t\t\t<form method='post' action=''><br/>\n");
+						sb.append("\t\t\t<h3 style='margin:0;padding:0'>切换APN</h3>\n");
+						List<ApnNode> nodes = new ArrayList<Apn.ApnNode>();
+						Apn.getAll(mContext, nodes);
+						ApnNode defaultApn = Apn.getDefaultApn(mContext);
+						if (defaultApn == null) {
+							defaultApn = new ApnNode();
 						}
-						sb.append("/><br />");
+						Iterator<Apn.ApnNode> it = nodes.iterator();
+						while (it.hasNext()) {
+							Apn.ApnNode node = (Apn.ApnNode) it.next();
+							sb.append(node.name);
+							sb.append("<input type='radio' name='apn_name' ");
+							String valueString = String.format("value='%s'", node.name);
+							sb.append(valueString);
+							if (defaultApn.name.equals(node.name)) {
+								sb.append("checked='checked'");
+							}
+							sb.append("/><br />");
+						}
+						sb.append("\t\t\t<input type='submit' name='switch_apn' value='确定'><br/></form>\n");
 					}
-					sb.append("\t\t\t<input type='submit' name='switch_apn' value='确定'><br/></form>\n");
 
 					// 平台地址
 					sb.append("\t\t\t<form  method='post' action=''>\n");
@@ -368,7 +371,7 @@ public class ConfigServer extends NanoHTTPD {
 							freq == 24000 ? "checked='checked'" : ""));
 					sb.append(String
 							.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
-							freq == 44100 ? "checked='checked'" : ""));
+									freq == 44100 ? "checked='checked'" : ""));
 					if (pref.getBoolean(G.KEY_HIGH_QUALITY, true)) {
 						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
 					} else {
