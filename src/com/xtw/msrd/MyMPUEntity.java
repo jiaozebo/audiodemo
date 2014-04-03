@@ -40,9 +40,9 @@ import com.gjfsoft.andaac.MainActivity;
 
 public class MyMPUEntity extends MPUEntity {
 
-	private static final int FRAME_NUMBER_PER_FILE = 50000;
+	private static final int MINUTES_PER_FILE = 5;
 	protected static int SIZE = 4096;
-	protected static final String TAG = "MyMPUEntity";
+	protected static final String TAG = "AUDIO";
 	private Thread mIAThread;
 	private DC7 mIADc;
 	private DC7 mIVDc;
@@ -114,6 +114,10 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
+	/**
+	 * 1秒钟读fre*4个字节（双通道，short）；1分钟读fre * 240个字节；5分钟读1200 * fre个字节。
+	 * 一帧SIZE个字节，5分钟读1200*fre/SIZE帧
+	 */
 	private void startOrRestart() {
 		if (isAudioStarted()) {
 			stopAudio();
@@ -128,6 +132,12 @@ public class MyMPUEntity extends MPUEntity {
 					SharedPreferences preferences = PreferenceManager
 							.getDefaultSharedPreferences(mContext);
 					int Fr = preferences.getInt(G.KEY_AUDIO_FREQ, 24000);
+					if (Fr != 24000 || Fr != 8000 || Fr != 16000 || Fr != 44100) {// fix
+																					// fr
+						Fr = 24000;
+					}
+					final int FRAME_NUMBER_PER_FILE = MINUTES_PER_FILE * 240 * Fr / SIZE;
+
 					int bitRate = preferences.getBoolean(G.KEY_HIGH_QUALITY, true) ? 64000 : 32000;
 					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
 							: AudioSource.DEFAULT;
@@ -166,8 +176,11 @@ public class MyMPUEntity extends MPUEntity {
 						if (isLocalRecord()) {
 							if ((mIdx++ == FRAME_NUMBER_PER_FILE || mResetFile)) {
 								mIdx = 0;
-								mResetFile = false;
 								stopRecord();
+								if (!mResetFile) {
+									mResetFile = false;
+									Log.e(TAG, "switch file!!!");
+								}
 								startNewFile();
 							}
 							recordFrame(outBuf, ret);

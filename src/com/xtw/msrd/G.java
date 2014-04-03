@@ -47,7 +47,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	/**
 	 * true l,false f
 	 */
-	public static final boolean USE_APN = false;
+	public static final boolean USE_APN = true;
 	private volatile static LoginStatus mLoginStatus = LoginStatus.STT_PRELOGIN;
 	private final List<Runnable> mLoginStatusChanedCallbacks = new ArrayList<Runnable>();
 
@@ -111,6 +111,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		super.onCreate();
 		initRoot();
 		if (sRootPath == null) {
+			Toast.makeText(this, "初始化存储路径失败！", Toast.LENGTH_LONG).show();
 			return;
 		}
 
