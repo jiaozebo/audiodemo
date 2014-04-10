@@ -40,7 +40,7 @@ import com.gjfsoft.andaac.MainActivity;
 
 public class MyMPUEntity extends MPUEntity {
 
-	private static final int MINUTES_PER_FILE = 5;
+	private static final int MINUTES_PER_FILE = 15;
 	protected static int SIZE = 4096;
 	protected static final String TAG = "AUDIO";
 	private Thread mIAThread;
@@ -61,7 +61,7 @@ public class MyMPUEntity extends MPUEntity {
 	protected List<PUDataChannel> mPDc = new ArrayList<PUDataChannel>();
 	protected EncryptZipOutput mZipOutput;
 	protected Object mZipOutputLock = new Object();
-	private String mCurrentRecordFileName;
+	private String mCurrentRecordFilePath;
 
 	public void addPUDataChannel(PUDataChannel pdc) {
 		synchronized (mPDc) {
@@ -460,7 +460,7 @@ public class MyMPUEntity extends MPUEntity {
 
 	private void stopRecord() {
 		synchronized (mZipOutputLock) {
-			mCurrentRecordFileName = null;
+			mCurrentRecordFilePath = null;
 			EncryptZipOutput output = mZipOutput;
 			if (output != null) {
 				mZipOutput = null;
@@ -481,7 +481,7 @@ public class MyMPUEntity extends MPUEntity {
 		synchronized (mZipOutputLock) {
 			try {
 				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
-				mCurrentRecordFileName = new File(filePath).getName();
+				mCurrentRecordFilePath = filePath;
 				filePath = filePath.replace(".zip", ".wav");
 				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
 			} catch (FileNotFoundException e) {
@@ -505,7 +505,7 @@ public class MyMPUEntity extends MPUEntity {
 	 * 
 	 * @return
 	 */
-	private boolean shouldContinue() {
+	public boolean shouldContinue() {
 		return mIADc != null || isLocalRecord() || !mPDc.isEmpty();
 	}
 
@@ -537,7 +537,14 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	public String getRecordingFileName() {
-		return mCurrentRecordFileName;
+		if (mCurrentRecordFilePath == null) {
+			return null;
+		}
+		return new File(mCurrentRecordFilePath).getName();
+	}
+
+	public String getRecordingFilePath() {
+		return mCurrentRecordFilePath;
 	}
 
 	private String createZipPath() {

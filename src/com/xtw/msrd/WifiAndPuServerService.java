@@ -12,6 +12,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,6 +27,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.crearo.config.Apn;
+import com.crearo.config.Wifi;
 import com.xtw.msrd.G.LoginStatus;
 
 /**
@@ -62,6 +64,18 @@ public class WifiAndPuServerService extends Service {
 		if (entity != null) {
 			// 默认录像
 			entity.setLocalRecord(true);
+		}
+
+		G g = (G) getApplication();
+		if (g.checkParam(true)) {
+			startService(new Intent(this, MsrdService.class));
+		}
+
+		ConnectivityManager mng = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+		NetworkInfo info = mng.getActiveNetworkInfo();
+		if ((info != null && info.isConnected() && info.getType() == ConnectivityManager.TYPE_WIFI)
+				|| Wifi.isWifiApEnabled((WifiManager) getSystemService(WIFI_SERVICE))) {
+			G.startServer(this);
 		}
 	}
 
@@ -243,11 +257,13 @@ public class WifiAndPuServerService extends Service {
 									.edit().putInt(KEY_AIR_PLANE_TIME, time).commit();
 							sendSMS(strMsgSrc, "time:" + time);
 						} else if (cmdCode.endsWith("jmks#")) { // 静默开始
-							sendSMS(strMsgSrc,"sleep after 30 seconds");
+							sendSMS(strMsgSrc, "sleep after 30 seconds");
 							sHandler.postDelayed(mOpenAirPlane, 30 * 1000);// 半分钟后开始
 						} else if (cmdCode.endsWith("jmtz#")) { // 静默停止
 							// mOpenAirPlane.run();
 							sHandler.removeCallbacks(mOpenAirPlane);
+							sHandler.removeCallbacks(mCloseAirPlane);
+							setAirplaneMode(false);
 							G.mEntity.setLocalRecord(true);
 							sendSMS(strMsgSrc, "stop sleep");
 						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
@@ -279,8 +295,7 @@ public class WifiAndPuServerService extends Service {
 				if (info != null && info.isAvailable()) {
 					String name = info.getTypeName();
 					Log.d("mark", "当前网络名称：" + name);
-					G g = (G) getApplication();
-					if (g.getLoginStatus() != LoginStatus.STT_LOGINED) {
+					if (G.getLoginStatus() != LoginStatus.STT_LOGINED) {
 						startService(new Intent(WifiAndPuServerService.this, MsrdService.class));
 					}
 				} else {
@@ -321,15 +336,6 @@ public class WifiAndPuServerService extends Service {
 				e.printStackTrace();
 			}
 		}
-	}
-
-	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
-		G g = (G) getApplication();
-		if (g.checkParam(true)) {
-			startService(new Intent(this, MsrdService.class));
-		}
-		return super.onStartCommand(intent, flags, startId);
 	}
 
 	public String checkMsg(String strMsgBody) {

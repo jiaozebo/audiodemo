@@ -20,6 +20,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -30,6 +31,7 @@ import android.widget.Toast;
 import c7.CRChannel;
 
 import com.crearo.config.StorageOptions;
+import com.crearo.config.Wifi;
 import com.crearo.mpu.sdk.Common;
 import com.crearo.mpu.sdk.MPUHandler;
 import com.crearo.mpu.sdk.MPUHandler.NCCAllback;
@@ -47,7 +49,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	/**
 	 * true l,false f
 	 */
-	public static final boolean USE_APN = true;
+	public static final boolean USE_APN = false;
 	private volatile static LoginStatus mLoginStatus = LoginStatus.STT_PRELOGIN;
 	private final List<Runnable> mLoginStatusChanedCallbacks = new ArrayList<Runnable>();
 
@@ -86,7 +88,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static final String KEY_AUDIO_FREQ = "key_audio_freq";
 
 	public static final String DEFAULT_SSID = USE_APN ? "123456" : "LiYinConfigure-WiFi007";
-	public static final String DEFAULT_SSID_PWD = USE_APN ? "58894436" : "admin123";
+	public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" : "admin123";
 	public static PUInfo sPUInfo;
 	static {
 		sPUInfo = new PUInfo();
@@ -155,8 +157,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				android.os.Build.MODEL);
 		sPUInfo.mMicName = pref
 				.getString(MPUHandler.KEY_IA_NAME.toString(), android.os.Build.MODEL);
-		sPUInfo.mSpeakerName = pref.getString(MPUHandler.KEY_OA_NAME.toString(),
-				android.os.Build.MODEL);
+		sPUInfo.mSpeakerName = null;
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
 		/**
@@ -166,11 +167,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 			@Override
 			public void onErrorFetched(CRChannel arg0, int arg1) {
-				logout();
-				if (networkAvailable(G.this) && checkParam(false)) {
-					Intent service = new Intent(G.this, MsrdService.class);
-					startService(service);
-				}
+				Intent service = new Intent(G.this, MsrdService.class);
+				service.putExtra(MsrdService.KEY_LOGOUT, true);
+				startService(service);
+				service = new Intent(G.this, MsrdService.class);
+				startService(service);
 			}
 		};
 		/**
@@ -210,13 +211,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		prf.registerOnSharedPreferenceChangeListener(this);
 
 		startService(new Intent(this, WifiAndPuServerService.class));
-
-		ConnectivityManager mng = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-		NetworkInfo info = mng.getActiveNetworkInfo();
-		if (info != null && info.isConnected() && info.getType() == ConnectivityManager.TYPE_WIFI) {
-			startServer(this);
-		}
-
 	}
 
 	public static void initRoot() {
@@ -237,12 +231,18 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			if (TextUtils.isEmpty(mAddres)) {
 				logoutAndEndLoop();
 			} else {
-				logout();
-				startService(new Intent(this, MsrdService.class));
+
+				Intent service = new Intent(this, MsrdService.class);
+				service.putExtra(MsrdService.KEY_LOGOUT, true);
+				startService(service);
+				service = new Intent(this, MsrdService.class);
+				startService(service);
 			}
 		} else if (key.equals(KEY_SERVER_FIXADDR)) {
 			mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, false);
-			logout();
+			Intent service = new Intent(this, MsrdService.class);
+			service.putExtra(MsrdService.KEY_LOGOUT, true);
+			startService(service);
 			startService(new Intent(this, MsrdService.class));
 		} else if (key.equals(KEY_SERVER_PREVIEW_VIDEO)) {
 			mPreviewVideo = prf.getBoolean(key, false);
@@ -324,27 +324,17 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public void logout() {
+		mEntity.logout();
+		mEntity.removeCallbacks(mLoginLoopTask);
 		setLoginStatus(LoginStatus.STT_PRELOGIN);
-		mEntity.post(new Runnable() {
-
-			@Override
-			public void run() {
-				mEntity.logout();
-			}
-		});
 	}
 
 	public void logoutAndEndLoop() {
-		mEntity.post(new Runnable() {
-
-			@Override
-			public void run() {
-				mLoginThread = null;
-				mEntity.logout();
-				mEntity.removeCallbacks(mLoginLoopTask);
-				setLoginStatus(LoginStatus.STT_PRELOGIN);
-			}
-		});
+		mLoginThread = null;
+		mEntity.removeCallbacks(mLoginLoopTask);
+		Intent service = new Intent(this, MsrdService.class);
+		service.putExtra(MsrdService.KEY_LOGOUT, true);
+		startService(service);
 	}
 
 	public void registerLoginStatusChangedCallback(Runnable callback) {
@@ -391,7 +381,15 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 	public static void startServer(Context context) {
 		if (mServer == null) {
-			PUServerThread p = new PUServerThread(context, sPUInfo, 8866);
+			PUInfo info = new PUInfo();
+			info.puid = sPUInfo.puid;
+			info.name = "audio";
+			info.cameraName = "camera";
+			info.mMicName = "camera";
+			info.mSpeakerName = null;
+			info.mGPSName = null;
+
+			PUServerThread p = new PUServerThread(context, info, 8866);
 			p.start();
 			p.setCallbackHandler(mEntity);
 			mServer = p;

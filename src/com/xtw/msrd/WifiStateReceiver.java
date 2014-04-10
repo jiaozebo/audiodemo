@@ -21,7 +21,6 @@ import com.crearo.config.Wifi;
 
 public class WifiStateReceiver extends BroadcastReceiver {
 
-	
 	private static final String tag = "WifiStateReceiver";
 	public static final String KEY_DEFAULT_SSID = "key_default_ssid";
 	public static final String KEY_DEFAULT_SSID_PWD = "key_default_ssid_pwd";
@@ -38,8 +37,11 @@ public class WifiStateReceiver extends BroadcastReceiver {
 					&& wifiState != WifiManager.WIFI_STATE_ENABLED) {
 				//
 				// wifi 关闭了
-				G.stopServer();
-				
+				WifiManager mng = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+				if (!Wifi.isWifiApEnabled(mng)) {
+					G.stopServer();
+				}
+
 			} else if (prevState != WifiManager.WIFI_STATE_ENABLED
 					&& wifiState == WifiManager.WIFI_STATE_ENABLED) {
 				// wifi 开启了

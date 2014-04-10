@@ -8,6 +8,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
+import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -106,16 +108,43 @@ public class ConfigServer extends NanoHTTPD {
 				boolean record = entity.isLocalRecord();
 				entity.stopAudio();
 				entity.setLocalRecord(record);
+				entity.checkThread();
+				return new Response(sb.toString());
+			} else if (parms.containsKey("mdy_date_time")) {
+				String millis = parms.get("time");
+				StringBuilder sb = new StringBuilder();
+				try {
+					MyMPUEntity entity = G.mEntity;
+					boolean localRecord = false;
+					if (entity != null) {
+						localRecord = entity.isLocalRecord();
+					}
+					if (localRecord) {
+						entity.setLocalRecord(false);
+					}
+					long milliseconds = Long.parseLong(millis);
+					AlarmManager am = (AlarmManager) mContext
+							.getSystemService(Context.ALARM_SERVICE);
+					am.setTime(milliseconds);
+					if (localRecord) {
+						entity.setLocalRecord(true);
+					}
+					sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
+				} catch (Exception e) {
+					sb.append(String
+							.format("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改失败(%s)</body></html>",
+									"" + e.getMessage()));
+				}
 				return new Response(sb.toString());
 			} else if (parms.containsKey("login") || parms.containsKey("query_login_status")) {
 				// 登录
-				G g = (G) mContext.getApplicationContext();
 				String state = "正在登录";
-				if (g.getLoginStatus() == LoginStatus.STT_LOGINED) {
+				if (G.getLoginStatus() == LoginStatus.STT_LOGINED) {
 					state = "已经登录";
-				} else if (g.getLoginStatus() == LoginStatus.STT_LOGINING) {
+				} else if (G.getLoginStatus() == LoginStatus.STT_LOGINING) {
 				} else {// preLogin
 					if (parms.containsKey("login")) {
+						G g = (G) mContext.getApplicationContext();
 						g.login();
 						state = "正在登录";
 					} else {
@@ -273,7 +302,6 @@ public class ConfigServer extends NanoHTTPD {
 					e.printStackTrace();
 					xml = "error: " + e.getMessage();
 				} catch (TransformerException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 					xml = "error: " + e.getMessage();
 				}
@@ -308,6 +336,17 @@ public class ConfigServer extends NanoHTTPD {
 					StringBuilder sb = new StringBuilder();
 					sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
 					sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
+
+					sb.append("<head>\n");
+					sb.append("<script type='text/javascript' language='javascript'>\n");
+					sb.append("function mdf_date_time(){\n");
+					sb.append("var dt = document.getElementById('date_time_text');\n");
+					sb.append("dt.value=''+new Date().getTime();\n");
+					sb.append("return true;\n");
+					sb.append("};\n");
+					sb.append("</script>\n");
+					sb.append("</head>\n");
+
 					sb.append("\t<body>\n");
 					sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
 
@@ -380,27 +419,6 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t\t<input type='submit' name='audio_cfg' value='配置' />\n");
 					sb.append("\t\t\t</form>\n");
 
-					// <form method='post' action=''>
-					// <h3 style='margin:0;padding:0'>平台</h3>
-					// 服务器IP地址: <input type='text' name='address'
-					// value='58.211.11.100'/>
-					// 端口: <input type='number' name='port' value='8958'/><br />
-					// <input type='submit' value='配置' />
-					// </form>
-					//
-					// <form method='post' action=''>
-					// <h3 style='margin:0;padding:0'>音频</h3>
-					// 8khz<input type='radio' name='audio_fre' value='8'/>
-					// 16khz<input type='radio' name='audio_fre' value='16'/><br
-					// />
-					// 24khz<input type='radio' name='audio_fre' value='24'/>
-					// 44.1khz<input type='radio' name='audio_fre'
-					// value='44.1'/><br />
-					// 高品质编码：<input type='checkbox' name='quality'
-					// checked='1'/><br />
-					// <input type='submit' name='switch_audio'
-					// value='确定'><br/></form>
-					// <form method='post' action=''>
 					// 登录状态
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>控制模块登录或退出“3G侦控平台”</h3>\n");
@@ -459,8 +477,10 @@ public class ConfigServer extends NanoHTTPD {
 					// record switch
 					sb.append("\t\t\t<form method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>模块本地录音功能:</h3>\n");
-					G g = (G) mContext.getApplicationContext();
-					if (g.mEntity.isLocalRecord()) {
+					boolean islocalRecord = false;
+					MyMPUEntity entity = G.mEntity;
+					islocalRecord = entity != null && entity.isLocalRecord();
+					if (islocalRecord) {
 						sb.append("\t\t\t\t开启<input type='radio' checked='checked' name='record_state' value='on' /><br />\n");
 						sb.append("\t\t\t\t关闭<input type='radio' name='record_state' value='off' /><br />\n");
 					} else {
@@ -471,6 +491,15 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t</form>\n");
 					// record switch end
 
+					// modify date time begin
+
+					sb.append("<form id='mdf_dt' method='get' action='' onsubmit='return mdf_date_time()'>\n");
+					sb.append("<h3 style='margin:0;padding:0'>修正模块时间</h3>\n");
+					sb.append("<input type='text' id='date_time_text' name='time' value='0' style='display:none;'/>\n");
+					sb.append("<input type='submit' name='mdy_date_time' value='修正' />\n");
+					sb.append("</form>\n");
+
+					// modify date time end
 					sb.append("\t\t<a href='?list_files=1'>模块录制文件下载</a><br/>\n");
 					sb.append("\t\t<a href='?white_list=1'>设置来电白名单</a><br/>\n");
 					sb.append("\t</body>\n");
@@ -499,7 +528,12 @@ public class ConfigServer extends NanoHTTPD {
 			if (parms.containsKey("delete")) {
 				File f = new File(mRoot, uri);
 				if (f.isDirectory()) {
-					deleteDir(f);
+					String path = G.mEntity.getRecordingFilePath();
+					if (new File(path).getParent().equals(f.getPath())) {
+						// 当前文件夹不能删
+					} else {
+						deleteDir(f);
+					}
 				} else {
 					f.delete();
 				}
@@ -686,8 +720,7 @@ public class ConfigServer extends NanoHTTPD {
 					}
 
 					if (files != null) {
-						G g = (G) mContext.getApplicationContext();
-						MyMPUEntity entity = g.mEntity;
+						MyMPUEntity entity = G.mEntity;
 						for (int i = 0; i < files.length; ++i) {
 							File curFile = new File(f, files[i]);
 							if (entity != null

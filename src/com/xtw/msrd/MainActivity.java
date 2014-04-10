@@ -70,7 +70,7 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 		};
 		g.registerLoginStatusChangedCallback(mCallback);
 		mCallback.run();
-		LoginStatus ls = g.getLoginStatus();
+		LoginStatus ls = G.getLoginStatus();
 		if (ls == LoginStatus.STT_PRELOGIN) {
 			if (g.checkParam(true)) {
 				startService(new Intent(this, MsrdService.class));
