@@ -3,11 +3,13 @@ package com.xtw.msrd;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -25,6 +27,7 @@ import android.os.Build.VERSION_CODES;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
 import android.util.Log;
 import c7.CRChannel;
 import c7.DC7;
@@ -47,6 +50,12 @@ public class MyMPUEntity extends MPUEntity {
 	private DC7 mIADc;
 	private DC7 mIVDc;
 	private boolean mResetFile = false;
+	private static Calendar sBaseCalendar;
+	static {
+		sBaseCalendar = Calendar.getInstance();
+		sBaseCalendar.clear();
+		sBaseCalendar.set(2014, Calendar.APRIL, 0);
+	}
 
 	public void resetFile() {
 		mResetFile = true;
@@ -550,12 +559,36 @@ public class MyMPUEntity extends MPUEntity {
 	private String createZipPath() {
 		SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd", Locale.CHINA);
 		Date date = new Date();
-		String dirPath = sdf.format(date);
-		File dirFile = new File(G.sRootPath, dirPath);
-		dirFile.mkdirs();
-		sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
+		String filePath = null;
+		if (date.after(sBaseCalendar.getTime())) { // 视作时间正确
+			String dirPath = sdf.format(date);
+			File dirFile = new File(G.sRootPath, dirPath);
+			dirFile.mkdirs();
+			sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
+			filePath = String.format("%s/%s.zip", dirFile.getPath(), sdf.format(date));
+		} else { // 视作时间不正确
+			String dirPath = String.valueOf(1);
+			File dirFile = new File(G.sRootPath, dirPath);
+			dirFile.mkdirs();
+			String[] paths = dirFile.list(new FilenameFilter() {
 
-		String filePath = String.format("%s/%s.zip", dirFile.getPath(), sdf.format(date));
+				@Override
+				public boolean accept(File dir, String filename) {
+					return TextUtils.isDigitsOnly(filename);
+				}
+			});
+			if (paths == null) {
+				return null;
+			}
+			int max = 1;
+			for (String path : paths) {
+				int p = Integer.parseInt(path);
+				if (max < p) {
+					max = p;
+				}
+			}
+			filePath = String.format("%s/%d.zip", dirFile.getPath(), max);
+		}
 		return filePath;
 	}
 

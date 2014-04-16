@@ -20,7 +20,6 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -31,7 +30,6 @@ import android.widget.Toast;
 import c7.CRChannel;
 
 import com.crearo.config.StorageOptions;
-import com.crearo.config.Wifi;
 import com.crearo.mpu.sdk.Common;
 import com.crearo.mpu.sdk.MPUHandler;
 import com.crearo.mpu.sdk.MPUHandler.NCCAllback;
@@ -87,8 +85,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static final String KEY_WHITE_LIST = "key_white_list";
 	public static final String KEY_AUDIO_FREQ = "key_audio_freq";
 
-	public static final String DEFAULT_SSID = USE_APN ? "123456" : "LiYinConfigure-WiFi007";
-	public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" : "admin123";
+//	public static final String DEFAULT_SSID = USE_APN ? "123456" : "LiYinConfigure-WiFi007";
+//	public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" : "admin123";
+	
+	public static final String DEFAULT_SSID = "123456";
+	public static final String DEFAULT_SSID_PWD = "12344321";
 	public static PUInfo sPUInfo;
 	static {
 		sPUInfo = new PUInfo();
@@ -147,16 +148,14 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 		mEntity = new MyMPUEntity(this);
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
-		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), android.os.Build.MODEL);
+		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 		sPUInfo.puid = pref.getString("key_puid", null);
 		if (sPUInfo.puid == null) {
 			sPUInfo.puid = Common.getPuid(this);
 			pref.edit().putString("key_puid", sPUInfo.puid).commit();
 		}
-		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(),
-				android.os.Build.MODEL);
-		sPUInfo.mMicName = pref
-				.getString(MPUHandler.KEY_IA_NAME.toString(), android.os.Build.MODEL);
+		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(), "camera");
+		sPUInfo.mMicName = pref.getString(MPUHandler.KEY_IA_NAME.toString(), "audio");
 		sPUInfo.mSpeakerName = null;
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 

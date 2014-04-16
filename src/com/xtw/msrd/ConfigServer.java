@@ -132,7 +132,7 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 				} catch (Exception e) {
 					sb.append(String
-							.format("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改失败(%s)</body></html>",
+							.format("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='5;url=/' />\n<body>修改失败(%s)</body></html>",
 									"" + e.getMessage()));
 				}
 				return new Response(sb.toString());
@@ -336,28 +336,51 @@ public class ConfigServer extends NanoHTTPD {
 					StringBuilder sb = new StringBuilder();
 					sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
 					sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
-
+					// head begin
 					sb.append("<head>\n");
 					sb.append("<script type='text/javascript' language='javascript'>\n");
 					sb.append("function mdf_date_time(){\n");
-					sb.append("var dt = document.getElementById('date_time_text');\n");
-					sb.append("dt.value=''+new Date().getTime();\n");
+					sb.append("var form = document.getElementById('mdf_dt');\n");
+					sb.append("var node = form.firstChild;\n");
+					sb.append("var date = new Date();\n");
+					sb.append("date.setSeconds(0);\n");
+					sb.append("while(node != null){\n");
+					sb.append("if (!(node instanceof Element)){\n");
+					sb.append("}else{\n");
+					sb.append("var name = node.getAttribute('name');\n");
+					sb.append("if (name == ('time')){\n");
+					sb.append("node.value=''+date.getTime();\n");
+					sb.append("break;\n");
+					sb.append("}else if (name == ('year')){\n");
+					sb.append("date.setFullYear(node.value);\n");
+					sb.append("}else if (name == ('month')){\n");
+					sb.append("date.setMonth(node.value-1);\n");
+					sb.append("}else if (name == ('day')){\n");
+					sb.append("date.setDate(node.value);\n");
+					sb.append("}else if (name == ('hour')){\n");
+					sb.append("date.setHours(node.value);\n");
+					sb.append("}else if (name == ('minute')){\n");
+					sb.append("date.setMinutes(node.value);\n");
+					sb.append("}\n");
+					sb.append("}\n");
+					sb.append("node = node.nextSibling;\n");
+					sb.append("}\n");
 					sb.append("return true;\n");
 					sb.append("};\n");
 					sb.append("</script>\n");
 					sb.append("</head>\n");
-
+					// head end
 					sb.append("\t<body>\n");
 					sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
 
+					// 添加APN
+					sb.append("\t\t\t<form method='post' action=''><br/>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>配置APN</h3>\n");
+					sb.append("<label>名称:</label><input type='text' name='name' value=''/><label>卡号后四位:</label><input type='number' name='number' value=''/><input type='submit' name='add_apn' value='添加'>");
+					sb.append("<br/>");
+					sb.append("\t\t\t</form>\n");
+					// 12、APN配置，但不显示所有可选运营商列表；
 					if (G.USE_APN) {
-						// 添加APN
-						sb.append("\t\t\t<form method='post' action=''><br/>\n");
-						sb.append("\t\t<h3 style='margin:0;padding:0'>配置APN</h3>\n");
-						sb.append("<label>名称:</label><input type='text' name='name' value=''/><label>卡号后四位:</label><input type='number' name='number' value=''/><input type='submit' name='add_apn' value='添加'>");
-						sb.append("<br/>");
-						sb.append("\t\t\t</form>\n");
-
 						// 切换APN
 						sb.append("\t\t\t<form method='post' action=''><br/>\n");
 						sb.append("\t\t\t<h3 style='margin:0;padding:0'>切换APN</h3>\n");
@@ -397,20 +420,23 @@ public class ConfigServer extends NanoHTTPD {
 
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t\t<h3 style='margin:0;padding:0'>音频</h3>\n");
-					int freq = PreferenceManager.getDefaultSharedPreferences(mContext).getInt(
-							G.KEY_AUDIO_FREQ, 24000);
-					sb.append(String.format(
-							"\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
-							freq == 8000 ? "checked='checked'" : ""));
-					sb.append(String.format(
-							"\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
-							freq == 16000 ? "checked='checked'" : ""));
-					sb.append(String.format(
-							"\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
-							freq == 24000 ? "checked='checked'" : ""));
-					sb.append(String
-							.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
-									freq == 44100 ? "checked='checked'" : ""));
+					// freq begin
+					// int freq =
+					// PreferenceManager.getDefaultSharedPreferences(mContext).getInt(
+					// G.KEY_AUDIO_FREQ, 24000);
+					// sb.append(String.format(
+					// "\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
+					// freq == 8000 ? "checked='checked'" : ""));
+					// sb.append(String.format(
+					// "\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
+					// freq == 16000 ? "checked='checked'" : ""));
+					// sb.append(String.format(
+					// "\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
+					// freq == 24000 ? "checked='checked'" : ""));
+					// sb.append(String
+					// .format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
+					// freq == 44100 ? "checked='checked'" : ""));
+					// freq end
 					if (pref.getBoolean(G.KEY_HIGH_QUALITY, true)) {
 						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
 					} else {
@@ -497,6 +523,34 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("<h3 style='margin:0;padding:0'>修正模块时间</h3>\n");
 					sb.append("<input type='text' id='date_time_text' name='time' value='0' style='display:none;'/>\n");
 					sb.append("<input type='submit' name='mdy_date_time' value='修正' />\n");
+					sb.append("</form>\n");
+
+					Calendar calendar = Calendar.getInstance();
+					int year = calendar.get(Calendar.YEAR);
+					int month = calendar.get(Calendar.MONTH) + 1;
+					int day = calendar.get(Calendar.DAY_OF_MONTH) + 1;
+					int hour = calendar.get(Calendar.HOUR_OF_DAY);
+					int minute = calendar.get(Calendar.MINUTE);
+
+					sb.append("<form id='mdf_dt' method='get' action='' onsubmit='return mdf_date_time()'><br/>\n");
+					sb.append("<h3 style='margin:0;padding:0'>修改模块时间</h3>\n");
+					sb.append("<input type='number'name='year' value='");
+					sb.append(year);
+					sb.append("' style='width:60;'size='4'max='2114'min='2014'/>年\n");
+					sb.append("<input type='number' name='month' value='");
+					sb.append(month);
+					sb.append("'size='2' style='width:60;'max='12' min='1'/>月\n");
+					sb.append("<input type='number' name='day' value='");
+					sb.append(day);
+					sb.append("' size='2'style='width:60;'max='31' min='1'/>日\n");
+					sb.append("<input type='number' name='hour' value='");
+					sb.append(hour);
+					sb.append("'size='2'style='width:60;'max='23' min='0'/>时\n");
+					sb.append("<input type='number'name='minute' value='");
+					sb.append(minute);
+					sb.append("'size='2'style='width:60;'max='59' min='0'/>分\n");
+					sb.append("<input type='text' id='date_time_text' name='time' value='0' style='display:none;'/>\n");
+					sb.append("<input type='submit' name='mdy_date_time' value='确定' />\n");
 					sb.append("</form>\n");
 
 					// modify date time end
