@@ -14,6 +14,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import nochump.util.zip.EncryptZipEntry;
 import nochump.util.zip.EncryptZipOutput;
@@ -27,7 +28,6 @@ import android.os.Build.VERSION_CODES;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
 import android.util.Log;
 import c7.CRChannel;
 import c7.DC7;
@@ -574,7 +574,7 @@ public class MyMPUEntity extends MPUEntity {
 
 				@Override
 				public boolean accept(File dir, String filename) {
-					return TextUtils.isDigitsOnly(filename);
+					return Pattern.matches("\\d+\\.zip", filename);
 				}
 			});
 			if (paths == null) {
@@ -582,12 +582,12 @@ public class MyMPUEntity extends MPUEntity {
 			}
 			int max = 1;
 			for (String path : paths) {
-				int p = Integer.parseInt(path);
+				int p = Integer.parseInt(path.substring(0, path.indexOf(".zip")));
 				if (max < p) {
 					max = p;
 				}
 			}
-			filePath = String.format("%s/%d.zip", dirFile.getPath(), max);
+			filePath = String.format("%s/%d.zip", dirFile.getPath(), ++max);
 		}
 		return filePath;
 	}

@@ -8,7 +8,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -113,27 +112,29 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("mdy_date_time")) {
 				String millis = parms.get("time");
 				StringBuilder sb = new StringBuilder();
+				boolean localRecord = false;
+				MyMPUEntity entity = G.mEntity;
+				if (entity != null) {
+					localRecord = entity.isLocalRecord();
+				}
+				if (localRecord) {
+					entity.setLocalRecord(false);
+				}
 				try {
-					MyMPUEntity entity = G.mEntity;
-					boolean localRecord = false;
-					if (entity != null) {
-						localRecord = entity.isLocalRecord();
-					}
-					if (localRecord) {
-						entity.setLocalRecord(false);
-					}
+
 					long milliseconds = Long.parseLong(millis);
 					AlarmManager am = (AlarmManager) mContext
 							.getSystemService(Context.ALARM_SERVICE);
 					am.setTime(milliseconds);
-					if (localRecord) {
-						entity.setLocalRecord(true);
-					}
 					sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 				} catch (Exception e) {
 					sb.append(String
 							.format("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='5;url=/' />\n<body>修改失败(%s)</body></html>",
 									"" + e.getMessage()));
+				} finally {
+					if (localRecord) {
+						entity.setLocalRecord(true);
+					}
 				}
 				return new Response(sb.toString());
 			} else if (parms.containsKey("login") || parms.containsKey("query_login_status")) {
@@ -340,31 +341,9 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("<head>\n");
 					sb.append("<script type='text/javascript' language='javascript'>\n");
 					sb.append("function mdf_date_time(){\n");
-					sb.append("var form = document.getElementById('mdf_dt');\n");
-					sb.append("var node = form.firstChild;\n");
+					sb.append("var time = document.getElementById('date_time_text');\n");
 					sb.append("var date = new Date();\n");
-					sb.append("date.setSeconds(0);\n");
-					sb.append("while(node != null){\n");
-					sb.append("if (!(node instanceof Element)){\n");
-					sb.append("}else{\n");
-					sb.append("var name = node.getAttribute('name');\n");
-					sb.append("if (name == ('time')){\n");
-					sb.append("node.value=''+date.getTime();\n");
-					sb.append("break;\n");
-					sb.append("}else if (name == ('year')){\n");
-					sb.append("date.setFullYear(node.value);\n");
-					sb.append("}else if (name == ('month')){\n");
-					sb.append("date.setMonth(node.value-1);\n");
-					sb.append("}else if (name == ('day')){\n");
-					sb.append("date.setDate(node.value);\n");
-					sb.append("}else if (name == ('hour')){\n");
-					sb.append("date.setHours(node.value);\n");
-					sb.append("}else if (name == ('minute')){\n");
-					sb.append("date.setMinutes(node.value);\n");
-					sb.append("}\n");
-					sb.append("}\n");
-					sb.append("node = node.nextSibling;\n");
-					sb.append("}\n");
+					sb.append("time.value=date.getTime();\n");
 					sb.append("return true;\n");
 					sb.append("};\n");
 					sb.append("</script>\n");
@@ -519,38 +498,10 @@ public class ConfigServer extends NanoHTTPD {
 
 					// modify date time begin
 
-					sb.append("<form id='mdf_dt' method='get' action='' onsubmit='return mdf_date_time()'>\n");
-					sb.append("<h3 style='margin:0;padding:0'>修正模块时间</h3>\n");
+					sb.append("<form id='mdf_dt' method='post' action='' onsubmit='return mdf_date_time()'><br/>\n");
+					sb.append("<h3 style='margin:0;padding:0'>同步当前时间到模块</h3>\n");
 					sb.append("<input type='text' id='date_time_text' name='time' value='0' style='display:none;'/>\n");
-					sb.append("<input type='submit' name='mdy_date_time' value='修正' />\n");
-					sb.append("</form>\n");
-
-					Calendar calendar = Calendar.getInstance();
-					int year = calendar.get(Calendar.YEAR);
-					int month = calendar.get(Calendar.MONTH) + 1;
-					int day = calendar.get(Calendar.DAY_OF_MONTH) + 1;
-					int hour = calendar.get(Calendar.HOUR_OF_DAY);
-					int minute = calendar.get(Calendar.MINUTE);
-
-					sb.append("<form id='mdf_dt' method='get' action='' onsubmit='return mdf_date_time()'><br/>\n");
-					sb.append("<h3 style='margin:0;padding:0'>修改模块时间</h3>\n");
-					sb.append("<input type='number'name='year' value='");
-					sb.append(year);
-					sb.append("' style='width:60;'size='4'max='2114'min='2014'/>年\n");
-					sb.append("<input type='number' name='month' value='");
-					sb.append(month);
-					sb.append("'size='2' style='width:60;'max='12' min='1'/>月\n");
-					sb.append("<input type='number' name='day' value='");
-					sb.append(day);
-					sb.append("' size='2'style='width:60;'max='31' min='1'/>日\n");
-					sb.append("<input type='number' name='hour' value='");
-					sb.append(hour);
-					sb.append("'size='2'style='width:60;'max='23' min='0'/>时\n");
-					sb.append("<input type='number'name='minute' value='");
-					sb.append(minute);
-					sb.append("'size='2'style='width:60;'max='59' min='0'/>分\n");
-					sb.append("<input type='text' id='date_time_text' name='time' value='0' style='display:none;'/>\n");
-					sb.append("<input type='submit' name='mdy_date_time' value='确定' />\n");
+					sb.append("<input type='submit' name='mdy_date_time' value='同步' />\n");
 					sb.append("</form>\n");
 
 					// modify date time end
