@@ -25,6 +25,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.os.Environment;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
@@ -487,6 +488,9 @@ public class MyMPUEntity extends MPUEntity {
 
 	private void startNewFile() {
 		String filePath = createZipPath();
+		if (filePath == null) {
+			return;
+		}
 		synchronized (mZipOutputLock) {
 			try {
 				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
@@ -557,6 +561,11 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	private String createZipPath() {
+		String rootPath = String.format("%s/%s", Environment
+				.getExternalStorageDirectory().getPath(), "audio");
+		if (G.sRootPath.equals(rootPath)) {
+			return null;
+		}
 		SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd", Locale.CHINA);
 		Date date = new Date();
 		String filePath = null;

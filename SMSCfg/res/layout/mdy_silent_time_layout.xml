@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal" >
+
+    <EditText
+        android:id="@+id/et_time_minute"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1.618"
+        android:hint="输入时间(分)"
+        android:inputType="number"
+        android:maxLength="4" />
+
+    <Button
+        android:id="@+id/set_selient_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="静默定时" />
+
+</LinearLayout>
