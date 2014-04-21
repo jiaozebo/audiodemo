@@ -50,6 +50,8 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 		}
 		setContentView(R.layout.activity_main);
 
+		View footerView = getLayoutInflater().inflate(R.layout.list_footer, getListView(), false);
+		getListView().addFooterView(footerView);
 		mLoginBtn = (Button) findViewById(R.id.btn_start);
 		// mLoginBtn.setOnClickListener(this);
 
