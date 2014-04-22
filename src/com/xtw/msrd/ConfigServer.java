@@ -534,7 +534,7 @@ public class ConfigServer extends NanoHTTPD {
 				File f = new File(mRoot, uri);
 				if (f.isDirectory()) {
 					String path = G.mEntity.getRecordingFilePath();
-					if (new File(path).getParent().equals(f.getPath())) {
+					if ((path != null) && new File(path).getParent().equals(f.getPath())) {
 						// 当前文件夹不能删
 					} else {
 						deleteDir(f);
