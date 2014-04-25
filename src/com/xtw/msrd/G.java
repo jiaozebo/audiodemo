@@ -85,9 +85,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static final String KEY_WHITE_LIST = "key_white_list";
 	public static final String KEY_AUDIO_FREQ = "key_audio_freq";
 
-//	public static final String DEFAULT_SSID = USE_APN ? "123456" : "LiYinConfigure-WiFi007";
-//	public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" : "admin123";
-	
+	// public static final String DEFAULT_SSID = USE_APN ? "123456" :
+	// "LiYinConfigure-WiFi007";
+	// public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" :
+	// "admin123";
+
 	public static final String DEFAULT_SSID = "123456";
 	public static final String DEFAULT_SSID_PWD = "12344321";
 	public static PUInfo sPUInfo;
@@ -213,10 +215,44 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public static void initRoot() {
-		StorageOptions.determineStorageOptions();
+		log(StorageOptions.MNT_SDCARD);
+		StorageOptions.readMountsFile();
+		String storager1 = "/storage/sdcard1";
+		boolean contain = false;
+		for (String mount : StorageOptions.mMounts) {
+			log("MOUNT1: " + mount);
+			if (mount.equals(storager1)) {
+				contain = true;
+			}
+		}
+		StorageOptions.readVoldFile();
+		for (String vold : StorageOptions.mVold) {
+			log("mVold: " + vold);
+		}
+		StorageOptions.compareMountsWithVold();
+		for (String mount : StorageOptions.mMounts) {
+			log("MOUNT2: " + mount);
+		}
+		if (!contain) {
+			StorageOptions.mMounts.add(storager1);
+		}
+		File root = new File(storager1);
+		log("storage exists " + root.exists());
+		log("storage isDirectory " + root.isDirectory());
+		log("storage canWrite " + root.canWrite());
+		log(storager1 + "/11111", "ceshi是否写入成功");
+		StorageOptions.testAndCleanMountsList();
+		for (String mount : StorageOptions.mMounts) {
+			log("MOUNT3: " + mount);
+		}
+		StorageOptions.setProperties();
 		String[] paths = StorageOptions.paths;
 		if (paths == null || paths.length == 0) {
+			log("no path found !!!");
 			return;
+		}
+		for (String path : paths) {
+			log("PATH: " + path);
 		}
 		// 使用版本号作为设备的名称
 		sRootPath = String.format("%s/%s", paths[0], "audio");
@@ -414,6 +450,35 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		if (sConfigServer != null) {
 			sConfigServer.stop();
 			sConfigServer = null;
+		}
+	}
+
+	public static void log(String message) {
+		log(null, message);
+	}
+
+	public static void log(String path, String message) {
+		FileOutputStream fos = null;
+		if (path == null) {
+			path = new File(Environment.getExternalStorageDirectory(), "audiolog").getPath();
+		}
+		try {
+			fos = new FileOutputStream(path, true);
+			fos.write(message.getBytes());
+			fos.write("\n".getBytes());
+			fos.flush();
+		} catch (IOException e) {
+			log("write " + message + "error ! " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			if (fos != null) {
+				try {
+					fos.close();
+				} catch (IOException e) {
+					log("close " + message + "error ! " + e.getMessage());
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 }

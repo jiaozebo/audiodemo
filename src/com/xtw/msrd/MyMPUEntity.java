@@ -479,9 +479,12 @@ public class MyMPUEntity extends MPUEntity {
 					output.closeEntry();
 					output.close();
 				} catch (IOException e) {
+					G.log("stopRecord error !" + e.getMessage());
 					e.printStackTrace();
 				}
-
+			}
+			else {
+				G.log("stopRecord output is null !");
 			}
 		}
 	}
@@ -491,6 +494,7 @@ public class MyMPUEntity extends MPUEntity {
 		if (filePath == null) {
 			return;
 		}
+		G.log("zip path : " + filePath);
 		synchronized (mZipOutputLock) {
 			try {
 				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
@@ -499,7 +503,9 @@ public class MyMPUEntity extends MPUEntity {
 				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
+				G.log("create " + filePath + " error, " + e.getMessage());
 			} catch (IOException e) {
+				G.log("create " + filePath + " error, " + e.getMessage());
 				if (mZipOutput != null) {
 					try {
 						mZipOutput.close();
@@ -540,11 +546,9 @@ public class MyMPUEntity extends MPUEntity {
 					output.flush();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
+					G.log("recordFrame error, " + e.getMessage());
 					e.printStackTrace();
 				}
-
-				// CommonMethod.save2fileNoLength(outBuf, 0, ret,
-				// filePath, true);
 			}
 		}
 	}
@@ -561,9 +565,11 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	private String createZipPath() {
+		// Environment.getExternalStorageDirectory().getPath();
 		String rootPath = String.format("%s/%s", Environment
 				.getExternalStorageDirectory().getPath(), "audio");
 		if (G.sRootPath.equals(rootPath)) {
+			G.log("sRootPath is internal!!!!");
 			return null;
 		}
 		SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd", Locale.CHINA);
@@ -576,6 +582,7 @@ public class MyMPUEntity extends MPUEntity {
 			sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
 			filePath = String.format("%s/%s.zip", dirFile.getPath(), sdf.format(date));
 		} else { // 视作时间不正确
+			G.log("error time !!!!");
 			String dirPath = String.valueOf(1);
 			File dirFile = new File(G.sRootPath, dirPath);
 			dirFile.mkdirs();
@@ -587,6 +594,7 @@ public class MyMPUEntity extends MPUEntity {
 				}
 			});
 			if (paths == null) {
+				G.log("list zip ,error !!!!");
 				return null;
 			}
 			int max = 1;
