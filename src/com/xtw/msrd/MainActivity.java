@@ -60,7 +60,7 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 
 			@Override
 			public void run() {
-				LoginStatus ls = g.getLoginStatus();
+				LoginStatus ls = G.getLoginStatus();
 				if (ls == LoginStatus.STT_PRELOGIN) {
 					mLoginBtn.setText("未登录");
 				} else if (ls == LoginStatus.STT_LOGINING) {

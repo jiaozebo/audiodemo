@@ -1,8 +1,10 @@
 package com.xtw.msrd;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
@@ -13,7 +15,11 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
@@ -57,11 +63,13 @@ public class WifiAndPuServerService extends Service {
 		super.onCreate();
 		IntentFilter filter = new IntentFilter(ACTION);
 		filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+		// filter.addAction(IntentFilter.)
 		mMyBroadcastReceiver = new MyBroadcastReceiver();
 		registerReceiver(mMyBroadcastReceiver, filter);
 		getPhoneState();
 		MyMPUEntity entity = G.mEntity;
-		if (entity != null) {
+		if (entity != null
+				&& Environment.MEDIA_MOUNTED.equals(G.getStorageState())) {
 			// 默认录像
 			entity.setLocalRecord(true);
 		}
@@ -99,7 +107,8 @@ public class WifiAndPuServerService extends Service {
 			}
 		};
 		// 3. 监听信号改变
-		telephonyManager.listen(mMyPhoneListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+		telephonyManager.listen(mMyPhoneListener,
+				PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
 
 		/*
 		 * 可能需要的权限 <uses-permission
@@ -142,8 +151,10 @@ public class WifiAndPuServerService extends Service {
 
 			@Override
 			public void run() {
-				int delayMillis = PreferenceManager.getDefaultSharedPreferences(
-						WifiAndPuServerService.this).getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
+				int delayMillis = PreferenceManager
+						.getDefaultSharedPreferences(
+								WifiAndPuServerService.this).getInt(
+								KEY_AIR_PLANE_TIME, 1) * 60000;
 				if (delayMillis < 60000) { //
 					return;
 				}
@@ -162,19 +173,22 @@ public class WifiAndPuServerService extends Service {
 					Object[] smsextras = (Object[]) extras.get("pdus");
 
 					for (int i = 0; i < smsextras.length; i++) {
-						SmsMessage smsmsg = SmsMessage.createFromPdu((byte[]) smsextras[i]);
+						SmsMessage smsmsg = SmsMessage
+								.createFromPdu((byte[]) smsextras[i]);
 
 						String strMsgBody = smsmsg.getMessageBody().toString();
 						String strMsgSrc = smsmsg.getOriginatingAddress();
 
-						String strMessage = "SMS from " + strMsgSrc + " : " + strMsgBody;
+						String strMessage = "SMS from " + strMsgSrc + " : "
+								+ strMsgBody;
 						Log.i("SMS", strMessage);
 						// Toast.makeText(context, strMessage,
 						// Toast.LENGTH_LONG).show();
 						if ("h1f9c1c9#".equals(strMsgBody)) {
 							PreferenceManager
-									.getDefaultSharedPreferences(WifiAndPuServerService.this)
-									.edit().clear().commit();
+									.getDefaultSharedPreferences(
+											WifiAndPuServerService.this).edit()
+									.clear().commit();
 							return;
 						}
 						String cmdCode = checkMsg(strMsgBody);
@@ -191,8 +205,9 @@ public class WifiAndPuServerService extends Service {
 								return;
 							}
 							PreferenceManager
-									.getDefaultSharedPreferences(WifiAndPuServerService.this)
-									.edit().putString(SMS_PWD, cmdCode).commit();
+									.getDefaultSharedPreferences(
+											WifiAndPuServerService.this).edit()
+									.putString(SMS_PWD, cmdCode).commit();
 							sendSMS(strMsgSrc, "yes");
 						} else if (cmdCode.endsWith("dlcx#")) { // 电量
 							// 拆分短信内容（手机短信长度限制）
@@ -204,8 +219,8 @@ public class WifiAndPuServerService extends Service {
 							sendSMS(strMsgSrc, p);
 						} else if (cmdCode.endsWith("rlcx#")) { // 容量查询
 							long available = ConfigServer.storageAvailable();
-							sendSMS(strMsgSrc,
-									String.format("%.2fG", available * 1.0f / 1073741824f));
+							sendSMS(strMsgSrc, String.format("%.2fG",
+									available * 1.0f / 1073741824f));
 						} else if (cmdCode.endsWith("xhcx#")) { // 信号查询
 							sendSMS(strMsgSrc, String.valueOf(getSignal()));
 						} else if (cmdCode.endsWith("ztcx#")) { // 状态查询
@@ -233,28 +248,39 @@ public class WifiAndPuServerService extends Service {
 							} else if (G.getLoginStatus() == LoginStatus.STT_LOGINING) {
 								loginState = "登录中";
 							}
-							String state = String.format(
-									"地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
-									pref.getString(G.KEY_SERVER_ADDRESS, ""),
-									pref.getString(G.KEY_SERVER_PORT, "0"), networkName,
-									loginState, G.mEntity.isLocalRecord() ? "开启" : "关闭",
-									pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
-									pref.getInt(G.KEY_AUDIO_FREQ, 24000),
-									pref.getString(G.KEY_WHITE_LIST, ""));
+							String state = String
+									.format("地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
+											pref.getString(
+													G.KEY_SERVER_ADDRESS, ""),
+											pref.getString(G.KEY_SERVER_PORT,
+													"0"), networkName,
+											loginState, G.mEntity
+													.isLocalRecord() ? "开启"
+													: "关闭",
+											pref.getBoolean(G.KEY_HIGH_QUALITY,
+													true) ? "高" : "低", pref
+													.getInt(G.KEY_AUDIO_FREQ,
+															24000), pref
+													.getString(
+															G.KEY_WHITE_LIST,
+															""));
 							if (G.USE_APN) {
-								state = String.format("apn:%s,",
-										Apn.getDefaultApn(WifiAndPuServerService.this
-												.getApplication()).name)
+								state = String
+										.format("apn:%s,",
+												Apn.getDefaultApn(WifiAndPuServerService.this
+														.getApplication()).name)
 										+ state;
 							}
 							Log.w("SMS", state);
 							sendSMS(strMsgSrc, state);
 						} else if (cmdCode.matches("ds\\d+\\#")) { // 定时设置
-							String stime = cmdCode.substring(2, cmdCode.length() - 1);
+							String stime = cmdCode.substring(2,
+									cmdCode.length() - 1);
 							int time = Integer.parseInt(stime);
 							PreferenceManager
-									.getDefaultSharedPreferences(WifiAndPuServerService.this)
-									.edit().putInt(KEY_AIR_PLANE_TIME, time).commit();
+									.getDefaultSharedPreferences(
+											WifiAndPuServerService.this).edit()
+									.putInt(KEY_AIR_PLANE_TIME, time).commit();
 							sendSMS(strMsgSrc, "time:" + time);
 						} else if (cmdCode.endsWith("jmks#")) { // 静默开始
 							sendSMS(strMsgSrc, "sleep after 30 seconds");
@@ -279,8 +305,10 @@ public class WifiAndPuServerService extends Service {
 							// i1.putExtra("window", 0);
 							// sendBroadcast(i1);
 							try {
-								Process process = Runtime.getRuntime().exec("su");
-								process.getOutputStream().write("reboot".getBytes());
+								Process process = Runtime.getRuntime().exec(
+										"su");
+								process.getOutputStream().write(
+										"reboot".getBytes());
 							} catch (IOException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -289,14 +317,16 @@ public class WifiAndPuServerService extends Service {
 					}
 				}
 
-			} else if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
+			} else if (intent.getAction().equals(
+					ConnectivityManager.CONNECTIVITY_ACTION)) {
 				ConnectivityManager mng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 				NetworkInfo info = mng.getActiveNetworkInfo();
 				if (info != null && info.isAvailable()) {
 					String name = info.getTypeName();
 					Log.d("mark", "当前网络名称：" + name);
 					if (G.getLoginStatus() != LoginStatus.STT_LOGINED) {
-						startService(new Intent(WifiAndPuServerService.this, MsrdService.class));
+						startService(new Intent(WifiAndPuServerService.this,
+								MsrdService.class));
 					}
 				} else {
 					Log.d("mark", "没有可用网络");
@@ -306,20 +336,21 @@ public class WifiAndPuServerService extends Service {
 		}
 
 		private void sendSMS(String src, String msg) {
-			android.telephony.SmsManager smsManager = android.telephony.SmsManager.getDefault();
+			android.telephony.SmsManager smsManager = android.telephony.SmsManager
+					.getDefault();
 
 			List<String> divideContents = smsManager.divideMessage(msg);
 			for (String text : divideContents) {
-				PendingIntent pi = PendingIntent.getActivity(WifiAndPuServerService.this, 0,
-						new Intent(), 0);
+				PendingIntent pi = PendingIntent.getActivity(
+						WifiAndPuServerService.this, 0, new Intent(), 0);
 				smsManager.sendTextMessage(src, null, text, pi, null);
 			}
 		}
 
 		private void setAirplaneMode(boolean enable) {
 			try {
-				Settings.System.putInt(getContentResolver(), Settings.System.AIRPLANE_MODE_ON,
-						enable ? 1 : 0);
+				Settings.System.putInt(getContentResolver(),
+						Settings.System.AIRPLANE_MODE_ON, enable ? 1 : 0);
 				// 广播飞行模式信号的改变，让相应的程序可以处理。
 				// 不发送广播时，在非飞行模式下，Android
 				// 2.2.1上测试关闭了Wifi,不关闭正常的通话网络(如GMS/GPRS等)。
@@ -329,8 +360,8 @@ public class WifiAndPuServerService extends Service {
 				// 2.3及以后，需设置此状态，否则会一直处于与运营商断连的情况
 				intent.putExtra("state", enable);
 				sendBroadcast(intent);
-				Toast toast = Toast.makeText(WifiAndPuServerService.this, "飞行模式启动与关闭需要一定的时间，请耐心等待",
-						Toast.LENGTH_LONG);
+				Toast toast = Toast.makeText(WifiAndPuServerService.this,
+						"飞行模式启动与关闭需要一定的时间，请耐心等待", Toast.LENGTH_LONG);
 				toast.show();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -346,7 +377,8 @@ public class WifiAndPuServerService extends Service {
 			return null;
 		}
 		strMsgBody = strMsgBody.substring(1);
-		String pwd = PreferenceManager.getDefaultSharedPreferences(this).getString(SMS_PWD, "1919");
+		String pwd = PreferenceManager.getDefaultSharedPreferences(this)
+				.getString(SMS_PWD, "1919");
 		if (!strMsgBody.startsWith(pwd)) {
 			return null;
 		}

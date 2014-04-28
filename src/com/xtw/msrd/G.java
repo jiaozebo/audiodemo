@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import junit.framework.Assert;
+import android.annotation.TargetApi;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
@@ -20,12 +21,16 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.Toast;
 import c7.CRChannel;
 
@@ -102,9 +107,14 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 * 正在登录的线程，不等于null表示需要循环登录
 	 */
 	private Thread mLoginThread;
-	public static String sRootPath;
+	public volatile static String sRootPath;
 	private static PUServerThread mServer;
 	private static ConfigServer sConfigServer;
+	
+	/**
+	 * 该值表示是否在mount了之后启动录像
+	 */
+	public static boolean sIsAbortToRecordAfterMounted = true;
 
 	/*
 	 * (non-Javadoc)
@@ -215,37 +225,39 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public static void initRoot() {
-		log(StorageOptions.MNT_SDCARD);
-		StorageOptions.readMountsFile();
-		String storager1 = "/storage/sdcard1";
-		boolean contain = false;
-		for (String mount : StorageOptions.mMounts) {
-			log("MOUNT1: " + mount);
-			if (mount.equals(storager1)) {
-				contain = true;
-			}
-		}
-		StorageOptions.readVoldFile();
-		for (String vold : StorageOptions.mVold) {
-			log("mVold: " + vold);
-		}
-		StorageOptions.compareMountsWithVold();
-		for (String mount : StorageOptions.mMounts) {
-			log("MOUNT2: " + mount);
-		}
-		if (!contain) {
-			StorageOptions.mMounts.add(storager1);
-		}
-		File root = new File(storager1);
-		log("storage exists " + root.exists());
-		log("storage isDirectory " + root.isDirectory());
-		log("storage canWrite " + root.canWrite());
-		log(storager1 + "/11111", "ceshi是否写入成功");
-		StorageOptions.testAndCleanMountsList();
-		for (String mount : StorageOptions.mMounts) {
-			log("MOUNT3: " + mount);
-		}
-		StorageOptions.setProperties();
+//		log(StorageOptions.MNT_SDCARD);
+//		StorageOptions.readMountsFile();
+//		String storager1 = "/storage/sdcard1";
+//		boolean contain = false;
+//		for (String mount : StorageOptions.mMounts) {
+//			log("MOUNT1: " + mount);
+//			if (mount.equals(storager1)) {
+//				contain = true;
+//			}
+//		}
+//		StorageOptions.readVoldFile();
+//		for (String vold : StorageOptions.mVold) {
+//			log("mVold: " + vold);
+//		}
+//		StorageOptions.compareMountsWithVold();
+//		for (String mount : StorageOptions.mMounts) {
+//			log("MOUNT2: " + mount);
+//		}
+//		if (!contain) {
+//			StorageOptions.mMounts.add(storager1);
+//		}
+//		File root = new File(storager1);
+//		log("storage exists " + root.exists());
+//		log("storage isDirectory " + root.isDirectory());
+//		log("storage canWrite " + root.canWrite());
+//		log(storager1 + "/11111", "ceshi是否写入成功");
+//		StorageOptions.testAndCleanMountsList();
+//		for (String mount : StorageOptions.mMounts) {
+//			log("MOUNT3: " + mount);
+//		}
+//		StorageOptions.setProperties();
+		
+		StorageOptions.determineStorageOptions();
 		String[] paths = StorageOptions.paths;
 		if (paths == null || paths.length == 0) {
 			log("no path found !!!");
@@ -458,6 +470,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public static void log(String path, String message) {
+		Log.e(TAG, message);
 		FileOutputStream fos = null;
 		if (path == null) {
 			path = new File(Environment.getExternalStorageDirectory(), "audiolog").getPath();
@@ -480,5 +493,16 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				}
 			}
 		}
+	}
+	
+	@TargetApi(Build.VERSION_CODES.KITKAT)
+	public static String getStorageState() {
+		String state = null;
+		if (VERSION.SDK_INT >= VERSION_CODES.KITKAT) {
+			state = Environment.getStorageState(new File(G.sRootPath));
+		} else {
+			state = Environment.getExternalStorageState();
+		}
+		return state;
 	}
 }

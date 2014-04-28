@@ -18,9 +18,6 @@
 
 package com.xtw.msrd;
 
-import java.io.File;
-import java.io.FileOutputStream;
-
 import util.CommonMethod;
 import android.content.BroadcastReceiver;
 import android.content.Context;

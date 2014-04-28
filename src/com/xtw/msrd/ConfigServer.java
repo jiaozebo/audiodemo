@@ -467,8 +467,12 @@ public class ConfigServer extends NanoHTTPD {
 					// storage available begin
 					sb.append("\t\t<h3 style='margin:0;padding:0'>设备存储</h3>\n");
 					long available = storageAvailable();
-					sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
-							available * 1.0f / 1073741824f));
+					if (available == -1l) {
+						sb.append(String.format("\t\t\t<label >可用存储空间:未知</label><br/>\n"));
+					}else {
+						sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
+								available * 1.0f / 1073741824f));
+					}
 					// storage available end
 
 					// baterry begin
@@ -881,11 +885,16 @@ public class ConfigServer extends NanoHTTPD {
 
 	public static long storageAvailable() {
 		String state = Environment.getExternalStorageState();
-		if (Environment.MEDIA_MOUNTED.equals(state)) {
-			StatFs sf = new StatFs(G.sRootPath);
-			long blockSize = sf.getBlockSize();
-			long availCount = sf.getAvailableBlocks();
-			return availCount * blockSize;
+		try {
+			if (Environment.MEDIA_MOUNTED.equals(state)) {
+				StatFs sf = new StatFs(G.sRootPath);
+				long blockSize = sf.getBlockSize();
+				long availCount = sf.getAvailableBlocks();
+				return availCount * blockSize;
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
 		}
 		return -1;
 	}

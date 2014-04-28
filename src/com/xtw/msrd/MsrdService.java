@@ -59,7 +59,7 @@ public class MsrdService extends Service {
 
 	@Override
 	public void onStart(Intent intent, int startId) {
-		boolean logout = intent.getBooleanExtra(KEY_LOGOUT, false);
+		boolean logout = intent == null || intent.getBooleanExtra(KEY_LOGOUT, false);
 		if (logout) {
 			mServiceHandler.removeCallbacks(mLogoutRunnable);
 			mServiceHandler.post(mLogoutRunnable);
