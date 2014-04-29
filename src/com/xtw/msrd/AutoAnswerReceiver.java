@@ -18,7 +18,6 @@
 
 package com.xtw.msrd;
 
-import util.CommonMethod;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -45,12 +44,11 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
 		MyMPUEntity entity = G.mEntity;
 		
-		String path = String.format("%s/%s", G.sRootPath, "audiolog.txt");
-		CommonMethod.save2File(phone_state, path, true);
+		G.log(phone_state);
 		if (phone_state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {
 			String white_list = prefs.getString(G.KEY_WHITE_LIST, null);
 			if (white_list == null) {
-				CommonMethod.save2File("white_list is null!", path, true);
+				G.log("white_list is null!");
 				return;
 			}
 			boolean found = false;
@@ -63,22 +61,22 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 			}
 			// Check for "second call" restriction
 			if (!found) {
-				CommonMethod.save2File(number + " not found in white_list!", path, true);
+				G.log(number + " not found in white_list!");
 				return;
 			}
 			// Call a service, since this could take a few seconds
-			CommonMethod.save2File("answer " + number, path, true);
+			G.log("answer " + number);
 			context.startService(new Intent(context, AutoAnswerIntentService.class));
 		} else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(phone_state)) {
 			if (entity != null) {
-				CommonMethod.save2File("stop audio", path, true);
+				G.log("stop audio");
 				Log.e(tag, "ring,close");
 				prefs.edit().putBoolean("prev_record", entity.isLocalRecord()).commit();
 				entity.stopAudio();
 			}
 		} else if (phone_state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
 			if (entity != null && !entity.isAudioStarted()) {
-				CommonMethod.save2File("restart audio", path, true);
+				G.log("restart audio");
 				entity.setLocalRecord(prefs.getBoolean("prev_record", true));
 				Log.e(tag, "ring stoped,reopen");
 			}

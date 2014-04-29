@@ -12,6 +12,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
+import util.CommonMethod;
+
 import junit.framework.Assert;
 import android.annotation.TargetApi;
 import android.app.Application;
@@ -110,7 +112,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public volatile static String sRootPath;
 	private static PUServerThread mServer;
 	private static ConfigServer sConfigServer;
-	
+
 	/**
 	 * 该值表示是否在mount了之后启动录像
 	 */
@@ -124,21 +126,24 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	@Override
 	public void onCreate() {
 		super.onCreate();
+		log("oncreate before init root!");
 		initRoot();
 		if (sRootPath == null) {
+			log("init root error!");
 			Toast.makeText(this, "初始化存储路径失败！", Toast.LENGTH_LONG).show();
 			return;
 		}
-
 		Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
 
 			@Override
 			public void uncaughtException(Thread thread, Throwable ex) {
 				ex.printStackTrace();
 				try {
-					FileOutputStream os = new FileOutputStream(new File(String.format("%s/%s",
-							sRootPath, "audiolog.txt")), true);
-					SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH.mm.ss");
+					FileOutputStream os = new FileOutputStream(new File(
+							String.format("%s/%s", sRootPath, "audiolog.txt")),
+							true);
+					SimpleDateFormat sdf = new SimpleDateFormat(
+							"yy-MM-dd HH.mm.ss");
 					String dateStr = sdf.format(new Date());
 					os.write(dateStr.getBytes());
 					PrintStream err = new PrintStream(os);
@@ -159,15 +164,18 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
 		mEntity = new MyMPUEntity(this);
-		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
+		SharedPreferences pref = PreferenceManager
+				.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 		sPUInfo.puid = pref.getString("key_puid", null);
 		if (sPUInfo.puid == null) {
 			sPUInfo.puid = Common.getPuid(this);
 			pref.edit().putString("key_puid", sPUInfo.puid).commit();
 		}
-		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(), "camera");
-		sPUInfo.mMicName = pref.getString(MPUHandler.KEY_IA_NAME.toString(), "audio");
+		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(),
+				"camera");
+		sPUInfo.mMicName = pref.getString(MPUHandler.KEY_IA_NAME.toString(),
+				"audio");
 		sPUInfo.mSpeakerName = null;
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
@@ -214,7 +222,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			e1.printStackTrace();
 		}
 
-		final SharedPreferences prf = PreferenceManager.getDefaultSharedPreferences(this);
+		final SharedPreferences prf = PreferenceManager
+				.getDefaultSharedPreferences(this);
 		mAddres = prf.getString(KEY_SERVER_ADDRESS, DEFAULT_ADDRESS);
 		mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
 		mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
@@ -225,38 +234,38 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public static void initRoot() {
-//		log(StorageOptions.MNT_SDCARD);
-//		StorageOptions.readMountsFile();
-//		String storager1 = "/storage/sdcard1";
-//		boolean contain = false;
-//		for (String mount : StorageOptions.mMounts) {
-//			log("MOUNT1: " + mount);
-//			if (mount.equals(storager1)) {
-//				contain = true;
-//			}
-//		}
-//		StorageOptions.readVoldFile();
-//		for (String vold : StorageOptions.mVold) {
-//			log("mVold: " + vold);
-//		}
-//		StorageOptions.compareMountsWithVold();
-//		for (String mount : StorageOptions.mMounts) {
-//			log("MOUNT2: " + mount);
-//		}
-//		if (!contain) {
-//			StorageOptions.mMounts.add(storager1);
-//		}
-//		File root = new File(storager1);
-//		log("storage exists " + root.exists());
-//		log("storage isDirectory " + root.isDirectory());
-//		log("storage canWrite " + root.canWrite());
-//		log(storager1 + "/11111", "ceshi是否写入成功");
-//		StorageOptions.testAndCleanMountsList();
-//		for (String mount : StorageOptions.mMounts) {
-//			log("MOUNT3: " + mount);
-//		}
-//		StorageOptions.setProperties();
-		
+		// log(StorageOptions.MNT_SDCARD);
+		// StorageOptions.readMountsFile();
+		// String storager1 = "/storage/sdcard1";
+		// boolean contain = false;
+		// for (String mount : StorageOptions.mMounts) {
+		// log("MOUNT1: " + mount);
+		// if (mount.equals(storager1)) {
+		// contain = true;
+		// }
+		// }
+		// StorageOptions.readVoldFile();
+		// for (String vold : StorageOptions.mVold) {
+		// log("mVold: " + vold);
+		// }
+		// StorageOptions.compareMountsWithVold();
+		// for (String mount : StorageOptions.mMounts) {
+		// log("MOUNT2: " + mount);
+		// }
+		// if (!contain) {
+		// StorageOptions.mMounts.add(storager1);
+		// }
+		// File root = new File(storager1);
+		// log("storage exists " + root.exists());
+		// log("storage isDirectory " + root.isDirectory());
+		// log("storage canWrite " + root.canWrite());
+		// log(storager1 + "/11111", "ceshi是否写入成功");
+		// StorageOptions.testAndCleanMountsList();
+		// for (String mount : StorageOptions.mMounts) {
+		// log("MOUNT3: " + mount);
+		// }
+		// StorageOptions.setProperties();
+
 		StorageOptions.determineStorageOptions();
 		String[] paths = StorageOptions.paths;
 		if (paths == null || paths.length == 0) {
@@ -299,13 +308,15 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public boolean checkParam(boolean toast) {
 		if (TextUtils.isEmpty(G.mAddres)) {
 			if (toast) {
-				Toast.makeText(getApplicationContext(), "平台地址不合法", Toast.LENGTH_SHORT).show();
+				Toast.makeText(getApplicationContext(), "平台地址不合法",
+						Toast.LENGTH_SHORT).show();
 			}
 			return false;
 		}
 		if (TextUtils.isEmpty(G.mPort)) {
 			if (toast) {
-				Toast.makeText(getApplicationContext(), "平台端口不合法", Toast.LENGTH_SHORT).show();
+				Toast.makeText(getApplicationContext(), "平台端口不合法",
+						Toast.LENGTH_SHORT).show();
 			}
 			return false;
 		}
@@ -348,7 +359,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		mEntity.setChannelCallback(mChannelCallback);
 		setLoginStatus(LoginStatus.STT_LOGINING);
 		long loginBegin = System.currentTimeMillis();
-		int r = mEntity.login(G.mAddres, Integer.parseInt(G.mPort), G.mFixAddr, "", sPUInfo);
+		int r = mEntity.login(G.mAddres, Integer.parseInt(G.mPort), G.mFixAddr,
+				"", sPUInfo);
 		if (r != 0) {
 			long timeSpend = System.currentTimeMillis() - loginBegin;
 			if (timeSpend < 1000) {
@@ -385,12 +397,14 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public void registerLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
+		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread
+				.currentThread());
 		mLoginStatusChanedCallbacks.add(callback);
 	}
 
 	public void unRegisterLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
+		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread
+				.currentThread());
 		mLoginStatusChanedCallbacks.remove(callback);
 	}
 
@@ -412,7 +426,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		int result = 0;
 		try {
 			// 取得sdcard文件路径
-			StatFs statFs = new StatFs(Environment.getExternalStorageDirectory().getAbsolutePath());
+			StatFs statFs = new StatFs(Environment
+					.getExternalStorageDirectory().getAbsolutePath());
 			// 获取BLOCK数量
 			float totalBlocks = statFs.getBlockCount();
 			// 可使用的Block的数量
@@ -469,32 +484,18 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		log(null, message);
 	}
 
-	public static void log(String path, String message) {
+	public static synchronized void log(String path, String message) {
 		Log.e(TAG, message);
-		FileOutputStream fos = null;
 		if (path == null) {
-			path = new File(Environment.getExternalStorageDirectory(), "audiolog").getPath();
-		}
-		try {
-			fos = new FileOutputStream(path, true);
-			fos.write(message.getBytes());
-			fos.write("\n".getBytes());
-			fos.flush();
-		} catch (IOException e) {
-			log("write " + message + "error ! " + e.getMessage());
-			e.printStackTrace();
-		} finally {
-			if (fos != null) {
-				try {
-					fos.close();
-				} catch (IOException e) {
-					log("close " + message + "error ! " + e.getMessage());
-					e.printStackTrace();
-				}
+			if (TextUtils.isEmpty(G.sRootPath)) {
+				return;
 			}
+			path = new File(String.format("%s/%s", G.sRootPath, "audiolog.txt"))
+					.getPath();
 		}
+		CommonMethod.save2File(message, path, true);
 	}
-	
+
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	public static String getStorageState() {
 		String state = null;

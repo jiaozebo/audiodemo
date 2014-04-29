@@ -25,7 +25,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
-import android.os.Environment;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
@@ -44,7 +43,7 @@ import com.gjfsoft.andaac.MainActivity;
 
 public class MyMPUEntity extends MPUEntity {
 
-	private static final int MINUTES_PER_FILE = 15;
+	private static final int MINUTES_PER_FILE = 1;
 	protected static int SIZE = 4096;
 	protected static final String TAG = "AUDIO";
 	private Thread mIAThread;
@@ -191,9 +190,11 @@ public class MyMPUEntity extends MPUEntity {
 							if ((mIdx++ == FRAME_NUMBER_PER_FILE || mResetFile)) {
 								mIdx = 0;
 								stopRecord();
-								if (!mResetFile) {
+								if (mResetFile) {
 									mResetFile = false;
-									Log.e(TAG, "switch file!!!");
+									G.log("manual switch file!!!");
+								} else {
+									G.log("timeout switch file!!!");
 								}
 								startNewFile();
 							}
@@ -465,14 +466,16 @@ public class MyMPUEntity extends MPUEntity {
 	 */
 	public void setLocalRecord(boolean record) {
 		boolean needCheck = (isLocalRecord() != record);
-
-		if (record) {
-			startNewFile();
-		} else {
-			stopRecord();
-		}
 		if (needCheck) {
+			G.log("LocalRecord change: " + record);
+			if (record) {
+				startNewFile();
+			} else {
+				stopRecord();
+			}
 			checkThread();
+		} else {
+			G.log("LocalRecord unchange: " + record);
 		}
 	}
 
@@ -571,11 +574,11 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	private String createZipPath() {
-//		String rootPath = String.format("%s/%s", Environment
-//				.getExternalStorageDirectory().getPath(), "audio");
-//		if (G.sRootPath.equals(rootPath)) {
-//			return null;
-//		}
+		// String rootPath = String.format("%s/%s", Environment
+		// .getExternalStorageDirectory().getPath(), "audio");
+		// if (G.sRootPath.equals(rootPath)) {
+		// return null;
+		// }
 		SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd", Locale.CHINA);
 		Date date = new Date();
 		String filePath = null;
@@ -600,7 +603,7 @@ public class MyMPUEntity extends MPUEntity {
 			if (paths == null) {
 				return null;
 			}
-			int max = 1;
+			int max = 0;
 			for (String path : paths) {
 				int p = Integer
 						.parseInt(path.substring(0, path.indexOf(".zip")));

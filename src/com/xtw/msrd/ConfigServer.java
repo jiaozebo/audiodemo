@@ -50,7 +50,6 @@ import com.xtw.msrd.G.LoginStatus;
 public class ConfigServer extends NanoHTTPD {
 	private static final String PWD = "123";
 	private static final String TAG = "Config";
-	private String mRoot;
 	private Context mContext;
 
 	/**
@@ -61,7 +60,6 @@ public class ConfigServer extends NanoHTTPD {
 	public ConfigServer(Context c, String fileRoot) throws IOException {
 		super(8080);
 		mContext = c;
-		mRoot = fileRoot;
 	}
 
 	@Override
@@ -117,15 +115,15 @@ public class ConfigServer extends NanoHTTPD {
 				if (entity != null) {
 					localRecord = entity.isLocalRecord();
 				}
-				if (localRecord) {
-					entity.setLocalRecord(false);
-				}
 				try {
 
 					long milliseconds = Long.parseLong(millis);
 					AlarmManager am = (AlarmManager) mContext
 							.getSystemService(Context.ALARM_SERVICE);
 					am.setTime(milliseconds);
+					if (localRecord) {
+						entity.setLocalRecord(false);
+					}
 					sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 				} catch (Exception e) {
 					sb.append(String
@@ -165,7 +163,7 @@ public class ConfigServer extends NanoHTTPD {
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>已退出登录.</body></html>");
 				return new Response(sb.toString());
 			} else if (parms.containsKey("list_files")) {
-				return serveFile(uri, header, mRoot, true);
+				return serveFile(uri, header, G.sRootPath, true);
 			} else if (parms.containsKey("add_white_number")) {
 				String newNumber = parms.get("phone_number");
 				if (!TextUtils.isEmpty(newNumber)) {
@@ -294,7 +292,7 @@ public class ConfigServer extends NanoHTTPD {
 					DocumentBuilder builder = DocumentBuilderFactory.newInstance()
 							.newDocumentBuilder();
 					Document doc = builder.newDocument();
-					File rootFile = new File(mRoot);
+					File rootFile = new File(G.sRootPath);
 					Element root = doc.createElement("File");
 					addFiles2Node(rootFile, root, doc);
 					doc.appendChild(root);
@@ -535,7 +533,7 @@ public class ConfigServer extends NanoHTTPD {
 
 		} else {
 			if (parms.containsKey("delete")) {
-				File f = new File(mRoot, uri);
+				File f = new File(G.sRootPath, uri);
 				if (f.isDirectory()) {
 					String path = G.mEntity.getRecordingFilePath();
 					if ((path != null) && new File(path).getParent().equals(f.getPath())) {
@@ -556,17 +554,17 @@ public class ConfigServer extends NanoHTTPD {
 								parentUri, f.getName(), f.exists() ? "未能删除" : "已删除"));
 			} else if (parms.containsKey("download_all")) {
 				uri = uri.substring(0, uri.lastIndexOf(".zip"));
-				File f = new File(mRoot, uri);
+				File f = new File(G.sRootPath, uri);
 				if (f.isDirectory()) {
 					try {
 						zipDir(f.getPath(), null);
 						final String zip = uri + ".zip";
-						Response r = serveFile(zip, header, mRoot, true);
+						Response r = serveFile(zip, header, G.sRootPath, true);
 						r.callback = new Runnable() {
 
 							@Override
 							public void run() {
-								new File(mRoot, zip).delete();
+								new File(G.sRootPath, zip).delete();
 							}
 						};
 						return r;
@@ -582,22 +580,22 @@ public class ConfigServer extends NanoHTTPD {
 										parentUri, "下载失败", e.getMessage()));
 					}
 				} else {
-					return serveFile(uri, header, mRoot, true);
+					return serveFile(uri, header, G.sRootPath, true);
 				}
 			} else if (parms.containsKey("download_and_delete")) {
-				Response r = serveFile(uri, header, mRoot, true);
+				Response r = serveFile(uri, header, G.sRootPath, true);
 				final String furi = uri;
 				r.callback = new Runnable() {
 
 					@Override
 					public void run() {
-						File file = new File(mRoot, furi);
+						File file = new File(G.sRootPath, furi);
 						file.delete();
 					}
 				};
 				return r;
 			} else {
-				return serveFile(uri, header, mRoot, true);
+				return serveFile(uri, header, G.sRootPath, true);
 			}
 		}
 	}

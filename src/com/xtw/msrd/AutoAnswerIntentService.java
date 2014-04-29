@@ -37,8 +37,6 @@ package com.xtw.msrd;
 
 import java.lang.reflect.Method;
 
-import util.CommonMethod;
-
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
@@ -61,7 +59,8 @@ public class AutoAnswerIntentService extends IntentService {
 		Context context = getBaseContext();
 
 		// Load preferences
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		SharedPreferences prefs = PreferenceManager
+				.getDefaultSharedPreferences(context);
 		// Check headset status right before picking up the call
 		// Make sure the phone is still ringing
 		TelephonyManager tm = (TelephonyManager) context
@@ -69,20 +68,18 @@ public class AutoAnswerIntentService extends IntentService {
 		if (tm.getCallState() != TelephonyManager.CALL_STATE_RINGING) {
 			return;
 		}
-		CommonMethod.save2File("before answer," + intent.toString(),
-				String.format("%s/%s", G.sRootPath, "mpudemo.txt"), true);
+		G.log("before answer," + intent.toString());
+
 		// Answer the phone
 		try {
 			answerPhoneAidl(context);
 		} catch (Exception e) {
 			e.printStackTrace();
-			CommonMethod.save2File("exception answer," + e.getMessage(),
-					String.format("%s/%s", G.sRootPath, "mpudemo.txt"), true);
+			G.log("exception answer," + e.getMessage());
 			Log.e("AutoAnswer",
 					"Error trying to answer using telephony service.  Falling back to headset.");
 		}
-		CommonMethod.save2File("after answer", String.format("%s/%s", G.sRootPath, "mpudemo.txt"),
-				true);
+		G.log("after answer");
 		// Enable the speakerphone
 		if (prefs.getBoolean("use_speakerphone", false)) {
 			enableSpeakerPhone(context);
@@ -91,7 +88,8 @@ public class AutoAnswerIntentService extends IntentService {
 	}
 
 	private void enableSpeakerPhone(Context context) {
-		AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+		AudioManager audioManager = (AudioManager) context
+				.getSystemService(Context.AUDIO_SERVICE);
 		audioManager.setSpeakerphoneOn(true);
 	}
 
