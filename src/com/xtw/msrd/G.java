@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
@@ -117,6 +118,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 * 该值表示是否在mount了之后启动录像
 	 */
 	public static boolean sIsAbortToRecordAfterMounted = true;
+	public static String sVersionCode = null;
 
 	/*
 	 * (non-Javadoc)
@@ -126,12 +128,11 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		log("oncreate before init root!");
-		initRoot();
-		if (sRootPath == null) {
-			log("init root error!");
-			Toast.makeText(this, "初始化存储路径失败！", Toast.LENGTH_LONG).show();
-			return;
+		try {
+			sVersionCode = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+		} catch (NameNotFoundException e1) {
+			sVersionCode = "0";
+			e1.printStackTrace();
 		}
 		Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
 
@@ -139,11 +140,9 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			public void uncaughtException(Thread thread, Throwable ex) {
 				ex.printStackTrace();
 				try {
-					FileOutputStream os = new FileOutputStream(new File(
-							String.format("%s/%s", sRootPath, "audiolog.txt")),
-							true);
-					SimpleDateFormat sdf = new SimpleDateFormat(
-							"yy-MM-dd HH.mm.ss");
+					FileOutputStream os = new FileOutputStream(new File(String.format("%s/%s",
+							sRootPath, "audiolog.txt")), true);
+					SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH.mm.ss");
 					String dateStr = sdf.format(new Date());
 					os.write(dateStr.getBytes());
 					PrintStream err = new PrintStream(os);
@@ -161,21 +160,22 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				System.exit(-1);
 			}
 		};
-		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
+		// Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
+	}
+
+	public void gloableInit() {
+		Assert.assertTrue(mEntity == null);
 		mEntity = new MyMPUEntity(this);
-		SharedPreferences pref = PreferenceManager
-				.getDefaultSharedPreferences(this);
+		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 		sPUInfo.puid = pref.getString("key_puid", null);
 		if (sPUInfo.puid == null) {
 			sPUInfo.puid = Common.getPuid(this);
 			pref.edit().putString("key_puid", sPUInfo.puid).commit();
 		}
-		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(),
-				"camera");
-		sPUInfo.mMicName = pref.getString(MPUHandler.KEY_IA_NAME.toString(),
-				"audio");
+		sPUInfo.cameraName = pref.getString(MPUHandler.KEY_CAMNAME.toString(), "camera");
+		sPUInfo.mMicName = pref.getString(MPUHandler.KEY_IA_NAME.toString(), "audio");
 		sPUInfo.mSpeakerName = null;
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
@@ -205,32 +205,13 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				}
 			}
 		};
-		File root = new File(sRootPath);
-		root.mkdirs();
-		try {
-			InputStream is = getAssets().open("ic_launcher.png");
-			FileOutputStream fos = new FileOutputStream(root + "/ic.ico");
-			byte[] buffer = new byte[1024];
-			int size = 0;
-			while ((size = is.read(buffer)) != -1) {
-				fos.write(buffer, 0, size);
-			}
-			is.close();
-			fos.close();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
 
-		final SharedPreferences prf = PreferenceManager
-				.getDefaultSharedPreferences(this);
+		final SharedPreferences prf = PreferenceManager.getDefaultSharedPreferences(this);
 		mAddres = prf.getString(KEY_SERVER_ADDRESS, DEFAULT_ADDRESS);
 		mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
 		mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
 		mPreviewVideo = prf.getBoolean(KEY_SERVER_PREVIEW_VIDEO, false);
 		prf.registerOnSharedPreferenceChangeListener(this);
-
-		startService(new Intent(this, WifiAndPuServerService.class));
 	}
 
 	public static void initRoot() {
@@ -287,7 +268,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			if (TextUtils.isEmpty(mAddres)) {
 				logoutAndEndLoop();
 			} else {
-
 				Intent service = new Intent(this, MsrdService.class);
 				service.putExtra(MsrdService.KEY_LOGOUT, true);
 				startService(service);
@@ -308,15 +288,13 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public boolean checkParam(boolean toast) {
 		if (TextUtils.isEmpty(G.mAddres)) {
 			if (toast) {
-				Toast.makeText(getApplicationContext(), "平台地址不合法",
-						Toast.LENGTH_SHORT).show();
+				Toast.makeText(getApplicationContext(), "平台地址不合法", Toast.LENGTH_SHORT).show();
 			}
 			return false;
 		}
 		if (TextUtils.isEmpty(G.mPort)) {
 			if (toast) {
-				Toast.makeText(getApplicationContext(), "平台端口不合法",
-						Toast.LENGTH_SHORT).show();
+				Toast.makeText(getApplicationContext(), "平台端口不合法", Toast.LENGTH_SHORT).show();
 			}
 			return false;
 		}
@@ -359,8 +337,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		mEntity.setChannelCallback(mChannelCallback);
 		setLoginStatus(LoginStatus.STT_LOGINING);
 		long loginBegin = System.currentTimeMillis();
-		int r = mEntity.login(G.mAddres, Integer.parseInt(G.mPort), G.mFixAddr,
-				"", sPUInfo);
+		int r = mEntity.login(G.mAddres, Integer.parseInt(G.mPort), G.mFixAddr, "", sPUInfo);
 		if (r != 0) {
 			long timeSpend = System.currentTimeMillis() - loginBegin;
 			if (timeSpend < 1000) {
@@ -397,14 +374,12 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public void registerLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread
-				.currentThread());
+		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
 		mLoginStatusChanedCallbacks.add(callback);
 	}
 
 	public void unRegisterLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread
-				.currentThread());
+		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
 		mLoginStatusChanedCallbacks.remove(callback);
 	}
 
@@ -426,8 +401,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		int result = 0;
 		try {
 			// 取得sdcard文件路径
-			StatFs statFs = new StatFs(Environment
-					.getExternalStorageDirectory().getAbsolutePath());
+			StatFs statFs = new StatFs(Environment.getExternalStorageDirectory().getAbsolutePath());
 			// 获取BLOCK数量
 			float totalBlocks = statFs.getBlockCount();
 			// 可使用的Block的数量
@@ -490,8 +464,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			if (TextUtils.isEmpty(G.sRootPath)) {
 				return;
 			}
-			path = new File(String.format("%s/%s", G.sRootPath, "audiolog.txt"))
-					.getPath();
+
+			path = new File(String.format("%s/%s.log", G.sRootPath, sVersionCode)).getPath();
 		}
 		CommonMethod.save2File(message, path, true);
 	}

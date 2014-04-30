@@ -1,7 +1,6 @@
 package com.xtw.msrd;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -43,7 +42,10 @@ import com.gjfsoft.andaac.MainActivity;
 
 public class MyMPUEntity extends MPUEntity {
 
-	private static final int MINUTES_PER_FILE = 1;
+	/**
+	 * 临时版：1分钟，正式版：15分钟
+	 */
+	private static final int MINUTES_PER_FILE = G.sVersionCode.contains("temp") ? 1 : 15;
 	protected static int SIZE = 4096;
 	protected static final String TAG = "AUDIO";
 	private Thread mIAThread;
@@ -145,17 +147,14 @@ public class MyMPUEntity extends MPUEntity {
 																					// fr
 						Fr = 24000;
 					}
-					final int FRAME_NUMBER_PER_FILE = MINUTES_PER_FILE * 240
-							* Fr / SIZE;
+					final int FRAME_NUMBER_PER_FILE = MINUTES_PER_FILE * 240 * Fr / SIZE;
 
-					int bitRate = preferences.getBoolean(G.KEY_HIGH_QUALITY,
-							true) ? 64000 : 32000;
+					int bitRate = preferences.getBoolean(G.KEY_HIGH_QUALITY, true) ? 64000 : 32000;
 					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
 							: AudioSource.DEFAULT;
 					int CC = AudioFormat.CHANNEL_IN_STEREO;
 					int BitNum = AudioFormat.ENCODING_PCM_16BIT;
-					int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC,
-							BitNum);
+					int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC, BitNum);
 					Log.d(TAG, String.valueOf(audioBuffer));
 					int size = SIZE;
 					if (size < audioBuffer) {
@@ -170,8 +169,7 @@ public class MyMPUEntity extends MPUEntity {
 					int read = 0;
 					int loopCount = 0;
 					while (mIAThread != null) {
-						int cread = ar.read(readBuf, read, readBuf.length
-								- read);
+						int cread = ar.read(readBuf, read, readBuf.length - read);
 						if (cread < 0)
 							break;
 						read += cread;
@@ -180,8 +178,8 @@ public class MyMPUEntity extends MPUEntity {
 						}
 						read = 0;
 
-						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf,
-								readBuf.length / 2, outBuf, SIZE);
+						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
+								outBuf, SIZE);
 						if (ret <= 0) {
 							continue;
 						}
@@ -224,8 +222,7 @@ public class MyMPUEntity extends MPUEntity {
 							 * ，然后分别送入ProducerID对应的解码库进行解码。 AlgID 1 算法类型的ID 0x0a
 							 * Rsv 3 保留
 							 */
-							ByteBuffer buffer = ByteBuffer
-									.allocate(16 + 4 + 4 + ret);
+							ByteBuffer buffer = ByteBuffer.allocate(16 + 4 + 4 + ret);
 							buffer.order(ByteOrder.LITTLE_ENDIAN);
 							buffer.putShort((short) (0x0324));
 							buffer.put((byte) 1);
@@ -264,11 +261,9 @@ public class MyMPUEntity extends MPUEntity {
 								int lim = bf.limit();
 								int pos = bf.position();
 								synchronized (mPDc) {
-									Iterator<PUDataChannel> it = mPDc
-											.iterator();
+									Iterator<PUDataChannel> it = mPDc.iterator();
 									while (it.hasNext()) {
-										PUDataChannel channel = (PUDataChannel) it
-												.next();
+										PUDataChannel channel = (PUDataChannel) it.next();
 										channel.pumpFrame(bf);
 										bf.limit(lim);
 										bf.position(pos);
@@ -282,6 +277,7 @@ public class MyMPUEntity extends MPUEntity {
 				} catch (Exception e) {
 					e.printStackTrace();
 					if (isLocalRecord()) {
+						G.log("audio exception : " + e.getMessage());
 						stopRecord();
 					}
 				} finally {
@@ -302,10 +298,9 @@ public class MyMPUEntity extends MPUEntity {
 		t.start();
 	}
 
-	protected static void save2FileEncrypt(byte[] outBuf, int offset,
-			int length, String filePath, boolean append) throws IOException {
-		EncryptZipOutput out = new EncryptZipOutput(new FileOutputStream(
-				filePath, append), "123");
+	protected static void save2FileEncrypt(byte[] outBuf, int offset, int length, String filePath,
+			boolean append) throws IOException {
+		EncryptZipOutput out = new EncryptZipOutput(new FileOutputStream(filePath, append), "123");
 
 		out.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
 		out.write(outBuf, offset, length);
@@ -397,6 +392,7 @@ public class MyMPUEntity extends MPUEntity {
 				e.printStackTrace();
 			}
 		}
+		G.log("stopAudio !");
 		stopRecord();
 	}
 
@@ -429,8 +425,8 @@ public class MyMPUEntity extends MPUEntity {
 	 * @param bigEndian
 	 * @return
 	 */
-	public static short getMax(byte[] data, int offset, int length,
-			short topValue, boolean bigEndian) {
+	public static short getMax(byte[] data, int offset, int length, short topValue,
+			boolean bigEndian) {
 		short max = 0;
 		// ByteBuffer bf = ByteBuffer.wrap(data, offset, length);
 		// ShortBuffer sf = bf.asShortBuffer();
@@ -492,8 +488,8 @@ public class MyMPUEntity extends MPUEntity {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-
 			}
+			G.log("stopRecord !");
 		}
 	}
 
@@ -504,14 +500,10 @@ public class MyMPUEntity extends MPUEntity {
 		}
 		synchronized (mZipOutputLock) {
 			try {
-				mZipOutput = new EncryptZipOutput(
-						new FileOutputStream(filePath), "123");
+				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
 				mCurrentRecordFilePath = filePath;
 				filePath = filePath.replace(".zip", ".wav");
-				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath)
-						.getName()));
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
+				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
 			} catch (IOException e) {
 				if (mZipOutput != null) {
 					try {
@@ -522,6 +514,8 @@ public class MyMPUEntity extends MPUEntity {
 					mZipOutput = null;
 				}
 				e.printStackTrace();
+			} finally {
+				G.log("startNewFile : " + (mZipOutput != null));
 			}
 		}
 	};
@@ -587,8 +581,7 @@ public class MyMPUEntity extends MPUEntity {
 			File dirFile = new File(G.sRootPath, dirPath);
 			dirFile.mkdirs();
 			sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
-			filePath = String.format("%s/%s.zip", dirFile.getPath(),
-					sdf.format(date));
+			filePath = String.format("%s/%s.zip", dirFile.getPath(), sdf.format(date));
 		} else { // 视作时间不正确
 			String dirPath = String.valueOf(1);
 			File dirFile = new File(G.sRootPath, dirPath);
@@ -605,8 +598,7 @@ public class MyMPUEntity extends MPUEntity {
 			}
 			int max = 0;
 			for (String path : paths) {
-				int p = Integer
-						.parseInt(path.substring(0, path.indexOf(".zip")));
+				int p = Integer.parseInt(path.substring(0, path.indexOf(".zip")));
 				if (max < p) {
 					max = p;
 				}

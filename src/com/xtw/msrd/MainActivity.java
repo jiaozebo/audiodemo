@@ -26,13 +26,11 @@ import android.widget.Toast;
 import com.crearo.config.Apn;
 import com.crearo.config.Apn.ApnNode;
 import com.crearo.config.Connectivity;
-import com.crearo.mpu.sdk.client.MPUEntity;
 import com.crearo.puserver.PUServerThread;
 import com.xtw.msrd.G.LoginStatus;
 
 public class MainActivity extends PreferenceActivity implements OnClickListener {
 
-	final MPUEntity mEntity = new MPUEntity(this);
 	private Button mLoginBtn;
 	private Runnable mCallback;
 	private AlertDialog mApnDlg;
@@ -40,22 +38,24 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		if (G.sRootPath == null) {
+		if (TextUtils.isEmpty(G.sRootPath)) {
 			G.initRoot();
 		}
-		if (G.sRootPath == null) {
+		if (TextUtils.isEmpty(G.sRootPath)) {
 			Toast.makeText(this, "请检查SD卡配置！", Toast.LENGTH_SHORT).show();
-			finish();
 			return;
 		}
+		final G g = (G) getApplication();
+		if (G.mEntity == null) {
+			g.gloableInit();
+		}
+		startService(new Intent(this, WifiAndPuServerService.class));
 		setContentView(R.layout.activity_main);
-
 		View footerView = getLayoutInflater().inflate(R.layout.list_footer, getListView(), false);
 		getListView().addFooterView(footerView);
 		mLoginBtn = (Button) findViewById(R.id.btn_start);
 		// mLoginBtn.setOnClickListener(this);
 
-		final G g = (G) getApplication();
 		mCallback = new Runnable() {
 
 			@Override
@@ -212,17 +212,6 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 			g.unRegisterLoginStatusChangedCallback(mCallback);
 		}
 		super.onDestroy();
-	}
-
-	@Override
-	public void onBackPressed() {
-
-		Button button = (Button) findViewById(R.id.btn_start);
-		if (button.getText().equals("终止")) {
-			mEntity.logout();
-		}
-		super.onBackPressed();
-
 	}
 
 	/**
