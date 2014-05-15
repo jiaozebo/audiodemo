@@ -3,7 +3,6 @@ package com.xtw.msrd;
 import java.io.IOException;
 import java.util.List;
 
-import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
@@ -14,8 +13,6 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.os.Build;
-import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -32,7 +29,6 @@ import android.widget.Toast;
 
 import com.crearo.config.Apn;
 import com.crearo.config.Wifi;
-import com.xtw.msrd.G.LoginStatus;
 
 /**
  * 直连与WIFI服务器服务，这是一个持久服务
@@ -79,7 +75,7 @@ public class WifiAndPuServerService extends Service {
 
 		G g = (G) getApplication();
 		if (g.checkParam(true)) {
-			startService(new Intent(this, MsrdService.class));
+			NCIntentService.startNC(this, G.mAddres, G.mPort);
 		}
 
 		ConnectivityManager mng = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
@@ -92,7 +88,7 @@ public class WifiAndPuServerService extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		MyMPUEntity entity = G.mEntity;
+		MyMPUEntity entity = G.sEntity;
 		boolean startAudio = intent.getBooleanExtra(KEY_ACTION_START_AUDIO, true);
 		G.log("onStartCommand : " + startAudio);
 		if (startAudio) {
@@ -112,6 +108,7 @@ public class WifiAndPuServerService extends Service {
 
 	@Override
 	public void onDestroy() {
+		NCIntentService.stopNC(this);
 		super.onDestroy();
 	}
 
@@ -184,7 +181,7 @@ public class WifiAndPuServerService extends Service {
 					return;
 				}
 				setAirplaneMode(true);
-				G.mEntity.setLocalRecord(false);
+				G.sEntity.setLocalRecord(false);
 				// 开启一定时间后关闭。
 				sHandler.postDelayed(mCloseAirPlane, delayMillis);
 			}
@@ -264,16 +261,16 @@ public class WifiAndPuServerService extends Service {
 								Log.d("mark", "没有可用网络");
 							}
 							String loginState = "未登录";
-							if (G.getLoginStatus() == LoginStatus.STT_LOGINED) {
+							if (G.getLoginStatus() == G.STT_LOGINED) {
 								loginState = "已登录";
-							} else if (G.getLoginStatus() == LoginStatus.STT_LOGINING) {
+							} else if (G.getLoginStatus() == G.STT_LOGINING) {
 								loginState = "登录中";
 							}
 							String state = String.format(
 									"地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
 									pref.getString(G.KEY_SERVER_ADDRESS, ""),
 									pref.getString(G.KEY_SERVER_PORT, "0"), networkName,
-									loginState, G.mEntity.isLocalRecord() ? "开启" : "关闭",
+									loginState, G.sEntity.isLocalRecord() ? "开启" : "关闭",
 									pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
 									pref.getInt(G.KEY_AUDIO_FREQ, 24000),
 									pref.getString(G.KEY_WHITE_LIST, ""));
@@ -300,13 +297,13 @@ public class WifiAndPuServerService extends Service {
 							sHandler.removeCallbacks(mOpenAirPlane);
 							sHandler.removeCallbacks(mCloseAirPlane);
 							setAirplaneMode(false);
-							G.mEntity.setLocalRecord(true);
+							G.sEntity.setLocalRecord(true);
 							sendSMS(strMsgSrc, "stop sleep");
 						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
-							G.mEntity.setLocalRecord(true);
+							G.sEntity.setLocalRecord(true);
 							sendSMS(strMsgSrc, "start record");
 						} else if (cmdCode.endsWith("tzly#")) {// 停止录音
-							G.mEntity.setLocalRecord(false);
+							G.sEntity.setLocalRecord(false);
 							sendSMS(strMsgSrc, "stop record");
 						} else if (cmdCode.endsWith("sbcq#")) { // 设备重启
 							// Intent i1 = new Intent(Intent.ACTION_REBOOT);
@@ -331,11 +328,13 @@ public class WifiAndPuServerService extends Service {
 				if (info != null && info.isAvailable()) {
 					String name = info.getTypeName();
 					Log.d("mark", "当前网络名称：" + name);
-					if (G.getLoginStatus() != LoginStatus.STT_LOGINED) {
-						startService(new Intent(WifiAndPuServerService.this, MsrdService.class));
+					if (G.getLoginStatus() == G.STT_PRELOGIN) {
+						NCIntentService
+								.startNC(context.getApplicationContext(), G.mAddres, G.mPort);
 					}
 				} else {
 					Log.d("mark", "没有可用网络");
+					NCIntentService.stopNC(context.getApplicationContext());
 				}
 			}
 

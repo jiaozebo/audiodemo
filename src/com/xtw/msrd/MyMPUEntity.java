@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import util.DES;
+import util.MD5;
+
 import nochump.util.zip.EncryptZipEntry;
 import nochump.util.zip.EncryptZipOutput;
 import android.content.Context;
@@ -32,11 +35,16 @@ import c7.CRChannel;
 import c7.DC7;
 import c7.DCAssist;
 import c7.Frame;
+import c7.IResType;
 import c7.LoginInfo;
+import c7.NC7;
+import c7.PUParam;
 
 import com.crearo.mpu.sdk.CameraThread;
 import com.crearo.mpu.sdk.GPSHandler;
+import com.crearo.mpu.sdk.client.ErrorCode;
 import com.crearo.mpu.sdk.client.MPUEntity;
+import com.crearo.mpu.sdk.client.PUInfo;
 import com.crearo.puserver.PUDataChannel;
 import com.gjfsoft.andaac.MainActivity;
 
@@ -45,7 +53,7 @@ public class MyMPUEntity extends MPUEntity {
 	/**
 	 * 临时版：1分钟，正式版：15分钟
 	 */
-	private static final int MINUTES_PER_FILE = G.sVersionCode.contains("temp") ? 1 : 15;
+	private static final int MINUTES_PER_FILE = G.sVersionCode.contains(".temp") ? 1 : 15;
 	protected static int SIZE = 4096;
 	protected static final String TAG = "AUDIO";
 	private Thread mIAThread;
@@ -63,6 +71,10 @@ public class MyMPUEntity extends MPUEntity {
 		mResetFile = true;
 	}
 
+	public NC7 getNC() {
+		return sNc;
+	}
+
 	public MyMPUEntity(Context context) {
 		super(context);
 		File f = new File(G.sRootPath);
@@ -73,6 +85,42 @@ public class MyMPUEntity extends MPUEntity {
 	protected EncryptZipOutput mZipOutput;
 	protected Object mZipOutputLock = new Object();
 	private String mCurrentRecordFilePath;
+
+	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info)
+			throws InterruptedException {
+		LoginInfo li = new LoginInfo();
+		li.addr = addr;
+		li.port = port;
+		li.isFixAddr = fixAddress;
+		li.password = password;
+		li.param = new PUParam();
+		li.param.ProducerID = "00005";
+		li.param.PUID = info.puid;
+		li.param.DevID = info.puid.substring(3);
+		li.param.HardwareVer = info.hardWareVer;
+		li.param.SoftwareVer = info.softWareVer;
+		li.param.puname = info.name;
+		li.param.pudesc = info.name;
+		li.param.mCamName = info.cameraName;
+		li.param.mMicName = info.mMicName;
+		li.param.mSpeakerName = info.mSpeakerName;
+		li.param.mGPSName = info.mGPSName;
+
+		sNc.setCallback(this);
+		for (IResType type : IResType.values()) {
+			type.mIsAlive = false;
+		}
+		li.binPswHash = MD5.encrypt(li.password.getBytes());
+		int rst = sNc.create(li, 5000);
+		if (rst != 0) {
+			rst += ErrorCode.NC_OFFSET;
+		} else {
+			sNc.sendRpt(li.param);
+			mDes = DES.getNativeInstance(sNc.getCryptKey());
+		}
+		return rst;
+
+	}
 
 	public void addPUDataChannel(PUDataChannel pdc) {
 		synchronized (mPDc) {

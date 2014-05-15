@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -12,9 +11,8 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import util.CommonMethod;
-
 import junit.framework.Assert;
+import util.CommonMethod;
 import android.annotation.TargetApi;
 import android.app.Application;
 import android.content.Context;
@@ -25,22 +23,20 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
-import c7.CRChannel;
 
 import com.crearo.config.StorageOptions;
 import com.crearo.mpu.sdk.Common;
 import com.crearo.mpu.sdk.MPUHandler;
-import com.crearo.mpu.sdk.MPUHandler.NCCAllback;
 import com.crearo.mpu.sdk.client.PUInfo;
 import com.crearo.puserver.PUServerThread;
 
@@ -48,16 +44,14 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	private static final String DEFAULT_PORT = "8958";
 	private static final String DEFAULT_ADDRESS = "58.211.11.100";
 
-	public enum LoginStatus {
-		STT_PRELOGIN, STT_LOGINING, STT_LOGINED;
-	}
-
+	public static final int STT_PRELOGIN = -1;
+	public static final int STT_LOGINING = 0;
+	public static final int STT_LOGINED = 1;
 	/**
 	 * true l,false f
 	 */
 	public static final boolean USE_APN = false;
-	private volatile static LoginStatus mLoginStatus = LoginStatus.STT_PRELOGIN;
-	private final List<Runnable> mLoginStatusChanedCallbacks = new ArrayList<Runnable>();
+	private volatile static int mLoginStatus = STT_PRELOGIN;
 
 	public static final String KEY_SERVER_ADDRESS = "KEY_SERVER_ADDRESS";
 	public static final String KEY_SERVER_PORT = "KEY_SERVER_PORT";
@@ -71,7 +65,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static final String KEY_DIALING_USE_3G_CARD = "KEY_DIALING_USE_3G_CARD";
 
 	public static String mAddres;
-	public static String mPort;
+	public static int mPort;
 	public static boolean mFixAddr, mPreviewVideo;
 
 	/**
@@ -83,7 +77,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	// Executors.newFixedThreadPool(10);
 	public static final Handler sUIHandler = new Handler();
 
-	static MyMPUEntity mEntity = null;
+	static MyMPUEntity sEntity = null;
 
 	private static final String TAG = "G";
 
@@ -104,12 +98,9 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	static {
 		sPUInfo = new PUInfo();
 	}
-	private NCCAllback mChannelCallback;
-	private Runnable mLoginLoopTask;
 	/**
 	 * 正在登录的线程，不等于null表示需要循环登录
 	 */
-	private Thread mLoginThread;
 	public volatile static String sRootPath;
 	private static PUServerThread mServer;
 	private static ConfigServer sConfigServer;
@@ -165,8 +156,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	}
 
 	public void gloableInit() {
-		Assert.assertTrue(mEntity == null);
-		mEntity = new MyMPUEntity(this);
+		Assert.assertTrue(sEntity == null);
+		sEntity = new MyMPUEntity(this);
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 		sPUInfo.puid = pref.getString("key_puid", null);
@@ -179,36 +170,14 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		sPUInfo.mSpeakerName = null;
 		sPUInfo.mGPSName = null;// 暂时不支持GPS，在这里设置为null
 
-		/**
-		 * 断线重连
-		 */
-		mChannelCallback = mEntity.new NCCAllback() {
-
-			@Override
-			public void onErrorFetched(CRChannel arg0, int arg1) {
-				Intent service = new Intent(G.this, MsrdService.class);
-				service.putExtra(MsrdService.KEY_LOGOUT, true);
-				startService(service);
-				service = new Intent(G.this, MsrdService.class);
-				startService(service);
-			}
-		};
-		/**
-		 * 断线重连Task
-		 */
-		mLoginLoopTask = new Runnable() {
-
-			@Override
-			public void run() {
-				if (networkAvailable(G.this)) {
-					mChannelCallback.onErrorFetched(null, 0);
-				}
-			}
-		};
-
 		final SharedPreferences prf = PreferenceManager.getDefaultSharedPreferences(this);
 		mAddres = prf.getString(KEY_SERVER_ADDRESS, DEFAULT_ADDRESS);
-		mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
+		try {
+			mPort = -1;
+			mPort = Integer.parseInt(prf.getString(KEY_SERVER_PORT, DEFAULT_PORT));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
 		mPreviewVideo = prf.getBoolean(KEY_SERVER_PREVIEW_VIDEO, false);
 		prf.registerOnSharedPreferenceChangeListener(this);
@@ -264,22 +233,22 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public void onSharedPreferenceChanged(SharedPreferences prf, String key) {
 		if (key.equals(KEY_SERVER_ADDRESS) || key.equals(KEY_SERVER_PORT)) {
 			mAddres = prf.getString(KEY_SERVER_ADDRESS, null);
-			mPort = prf.getString(KEY_SERVER_PORT, DEFAULT_PORT);
-			if (TextUtils.isEmpty(mAddres)) {
-				logoutAndEndLoop();
-			} else {
-				Intent service = new Intent(this, MsrdService.class);
-				service.putExtra(MsrdService.KEY_LOGOUT, true);
-				startService(service);
-				service = new Intent(this, MsrdService.class);
-				startService(service);
+			try {
+				mPort = -1;
+				mPort = Integer.parseInt(prf.getString(KEY_SERVER_PORT, DEFAULT_PORT));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			NCIntentService.stopNC(this);
+			if (checkParam(false)) {
+				NCIntentService.startNC(this, mAddres, mPort);
 			}
 		} else if (key.equals(KEY_SERVER_FIXADDR)) {
-			mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, false);
-			Intent service = new Intent(this, MsrdService.class);
-			service.putExtra(MsrdService.KEY_LOGOUT, true);
-			startService(service);
-			startService(new Intent(this, MsrdService.class));
+			mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
+			NCIntentService.stopNC(this);
+			if (checkParam(false)) {
+				NCIntentService.startNC(this, mAddres, mPort);
+			}
 		} else if (key.equals(KEY_SERVER_PREVIEW_VIDEO)) {
 			mPreviewVideo = prf.getBoolean(key, false);
 		}
@@ -292,7 +261,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			}
 			return false;
 		}
-		if (TextUtils.isEmpty(G.mPort)) {
+		if (G.mPort == -1) {
 			if (toast) {
 				Toast.makeText(getApplicationContext(), "平台端口不合法", Toast.LENGTH_SHORT).show();
 			}
@@ -301,43 +270,20 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		return true;
 	}
 
-	public static LoginStatus getLoginStatus() {
+	public static int getLoginStatus() {
 		return mLoginStatus;
 	}
 
-	private void setLoginStatus(final LoginStatus newStatus) {
-		if (newStatus == mLoginStatus) {
-			return;
-		}
+	public static void setLoginStatus(final int newStatus) {
 		mLoginStatus = newStatus;
-		Runnable runnable = new Runnable() {
-
-			@Override
-			public void run() {
-				Iterator<Runnable> it = mLoginStatusChanedCallbacks.iterator();
-				while (it.hasNext()) {
-					Runnable run = (Runnable) it.next();
-					run.run();
-				}
-			}
-		};
-		if (Looper.getMainLooper().getThread() == Thread.currentThread()) {
-			runnable.run();
-		} else {
-			sUIHandler.post(runnable);
-		}
 	}
 
-	public void login() {
-
-		mLoginThread = Thread.currentThread();
-		Assert.assertEquals(LoginStatus.STT_PRELOGIN, mLoginStatus);
-		Assert.assertTrue(Looper.getMainLooper().getThread() != mLoginThread);
-
-		mEntity.setChannelCallback(mChannelCallback);
-		setLoginStatus(LoginStatus.STT_LOGINING);
+	public void login() throws InterruptedException {
+		if (sEntity == null) {
+			return;
+		}
 		long loginBegin = System.currentTimeMillis();
-		int r = mEntity.login(G.mAddres, Integer.parseInt(G.mPort), G.mFixAddr, "", sPUInfo);
+		int r = sEntity.loginBlock(G.mAddres, G.mPort, G.mFixAddr, "", sPUInfo);
 		if (r != 0) {
 			long timeSpend = System.currentTimeMillis() - loginBegin;
 			if (timeSpend < 1000) {
@@ -348,39 +294,13 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 					e.printStackTrace();
 				}
 			}
-			setLoginStatus(LoginStatus.STT_PRELOGIN);
-			if (mLoginThread != null) {
-				mEntity.removeCallbacks(mLoginLoopTask);
-				mEntity.postDelayed(mLoginLoopTask, 3000);
-			}
 		} else {
-			setLoginStatus(LoginStatus.STT_LOGINED);
 		}
 
 	}
 
 	public void logout() {
-		mEntity.logout();
-		mEntity.removeCallbacks(mLoginLoopTask);
-		setLoginStatus(LoginStatus.STT_PRELOGIN);
-	}
-
-	public void logoutAndEndLoop() {
-		mLoginThread = null;
-		mEntity.removeCallbacks(mLoginLoopTask);
-		Intent service = new Intent(this, MsrdService.class);
-		service.putExtra(MsrdService.KEY_LOGOUT, true);
-		startService(service);
-	}
-
-	public void registerLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
-		mLoginStatusChanedCallbacks.add(callback);
-	}
-
-	public void unRegisterLoginStatusChangedCallback(Runnable callback) {
-		Assert.assertTrue(Looper.getMainLooper().getThread() == Thread.currentThread());
-		mLoginStatusChanedCallbacks.remove(callback);
+		sEntity.logout();
 	}
 
 	public static boolean networkAvailable(Context c) {
@@ -427,7 +347,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 
 			PUServerThread p = new PUServerThread(context, info, 8866);
 			p.start();
-			p.setCallbackHandler(mEntity);
+			p.setCallbackHandler(sEntity);
 			mServer = p;
 		}
 		if (sConfigServer == null) {

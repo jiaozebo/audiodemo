@@ -4,8 +4,10 @@ import java.util.Iterator;
 import java.util.List;
 
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.net.ConnectivityManager;
 import android.net.Uri;
@@ -15,6 +17,7 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceManager;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -27,13 +30,12 @@ import com.crearo.config.Apn;
 import com.crearo.config.Apn.ApnNode;
 import com.crearo.config.Connectivity;
 import com.crearo.puserver.PUServerThread;
-import com.xtw.msrd.G.LoginStatus;
 
 public class MainActivity extends PreferenceActivity implements OnClickListener {
 
 	private Button mLoginBtn;
-	private Runnable mCallback;
 	private AlertDialog mApnDlg;
+	private BroadcastReceiver mReceiver;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -46,7 +48,7 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 			return;
 		}
 		final G g = (G) getApplication();
-		if (G.mEntity == null) {
+		if (G.sEntity == null) {
 			g.gloableInit();
 		}
 		startService(new Intent(this, WifiAndPuServerService.class));
@@ -56,30 +58,17 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 		mLoginBtn = (Button) findViewById(R.id.btn_start);
 		// mLoginBtn.setOnClickListener(this);
 
-		mCallback = new Runnable() {
+		mReceiver = new BroadcastReceiver() {
 
 			@Override
-			public void run() {
-				LoginStatus ls = G.getLoginStatus();
-				if (ls == LoginStatus.STT_PRELOGIN) {
-					mLoginBtn.setText("未登录");
-				} else if (ls == LoginStatus.STT_LOGINING) {
-					mLoginBtn.setText("正在登录");
-				} else {
-					mLoginBtn.setText("已登录");
+			public void onReceive(Context context, Intent intent) {
+				if (intent.getAction().equals(NCIntentService.ACTION_START_NC)) {
+					setLoginState();
 				}
 			}
 		};
-		g.registerLoginStatusChangedCallback(mCallback);
-		mCallback.run();
-		LoginStatus ls = G.getLoginStatus();
-		if (ls == LoginStatus.STT_PRELOGIN) {
-			if (g.checkParam(true)) {
-				startService(new Intent(this, MsrdService.class));
-			} else {
-				getListView().setVisibility(View.VISIBLE);
-			}
-		}
+		IntentFilter inf = new IntentFilter(NCIntentService.ACTION_START_NC);
+		LocalBroadcastManager.getInstance(this).registerReceiver(mReceiver, inf);
 
 		TextView tView = (TextView) findViewById(R.id.ip_address);
 		List<String> ips = PUServerThread.getAllIpAddress();
@@ -100,6 +89,7 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 		} catch (Exception e) {
 		}
 
+		setLoginState();
 	}
 
 	private void tryEnableMobileData() {
@@ -107,6 +97,17 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 				.isMobileDataEnabled((ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE))) {
 			Connectivity.setMobileDataEnable(
 					(ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE), true);
+		}
+	}
+
+	private void setLoginState() {
+		int ls = G.getLoginStatus();
+		if (ls == G.STT_PRELOGIN) {
+			mLoginBtn.setText("未登录");
+		} else if (ls == G.STT_LOGINING) {
+			mLoginBtn.setText("正在登录");
+		} else {
+			mLoginBtn.setText("已登录");
 		}
 	}
 
@@ -138,11 +139,6 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 	@Override
 	public void onClick(View v) {
 		if (v.getId() == R.id.btn_start) {
-			final Button button = (Button) v;
-			if (button.getText().equals("未登录")) {
-				startService(new Intent(this, MsrdService.class));
-			} else {
-			}
 		} else if (R.id.btn_add_apn == v.getId()) {
 			final View view = getLayoutInflater().inflate(R.layout.dlg_apn, null);
 			view.findViewById(R.id.apn_add).setOnClickListener(this);
@@ -207,9 +203,9 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 
 	@Override
 	protected void onDestroy() {
-		if (mCallback != null) {
-			G g = (G) getApplication();
-			g.unRegisterLoginStatusChangedCallback(mCallback);
+		if (mReceiver != null) {
+			LocalBroadcastManager.getInstance(this).unregisterReceiver(mReceiver);
+			mReceiver = null;
 		}
 		super.onDestroy();
 	}

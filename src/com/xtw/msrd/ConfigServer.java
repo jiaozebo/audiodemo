@@ -19,7 +19,6 @@ import java.util.zip.ZipOutputStream;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.TransformerException;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -45,7 +44,6 @@ import com.crearo.config.NanoHTTPD;
 import com.crearo.config.NanoHTTPD.Response.Status;
 import com.crearo.config.Wifi;
 import com.crearo.puserver.PUCommandChannel;
-import com.xtw.msrd.G.LoginStatus;
 
 public class ConfigServer extends NanoHTTPD {
 	private static final String PWD = "123";
@@ -101,7 +99,7 @@ public class ConfigServer extends NanoHTTPD {
 				StringBuffer sb = new StringBuffer();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 
-				MyMPUEntity entity = (MyMPUEntity) G.mEntity;
+				MyMPUEntity entity = (MyMPUEntity) G.sEntity;
 				boolean record = entity.isLocalRecord();
 				entity.stopAudio();
 				entity.setLocalRecord(record);
@@ -111,7 +109,7 @@ public class ConfigServer extends NanoHTTPD {
 				String millis = parms.get("time");
 				StringBuilder sb = new StringBuilder();
 				boolean localRecord = false;
-				MyMPUEntity entity = G.mEntity;
+				MyMPUEntity entity = G.sEntity;
 				if (entity != null) {
 					localRecord = entity.isLocalRecord();
 				}
@@ -138,13 +136,15 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("login") || parms.containsKey("query_login_status")) {
 				// 登录
 				String state = "正在登录";
-				if (G.getLoginStatus() == LoginStatus.STT_LOGINED) {
+				if (G.getLoginStatus() == G.STT_LOGINED) {
 					state = "已经登录";
-				} else if (G.getLoginStatus() == LoginStatus.STT_LOGINING) {
+				} else if (G.getLoginStatus() == G.STT_LOGINED) {
 				} else {// preLogin
 					if (parms.containsKey("login")) {
-						G g = (G) mContext.getApplicationContext();
-						g.login();
+						// Intent service = new Intent(mContext,
+						// MsrdService.class);
+						// mContext.startService(service);
+						NCIntentService.startNC(mContext, G.mAddres, G.mPort);
 						state = "正在登录";
 					} else {
 						state = "未登录";
@@ -158,7 +158,7 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("logout")) {
 				// 登出
 				G g = (G) mContext.getApplicationContext();
-				g.logoutAndEndLoop();
+				NCIntentService.stopNC(mContext);
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>已退出登录.</body></html>");
 				return new Response(sb.toString());
@@ -300,9 +300,6 @@ public class ConfigServer extends NanoHTTPD {
 				} catch (ParserConfigurationException e) {
 					e.printStackTrace();
 					xml = "error: " + e.getMessage();
-				} catch (TransformerException e) {
-					e.printStackTrace();
-					xml = "error: " + e.getMessage();
 				}
 				return new Response(Status.OK, "text/xml", xml);
 			} else if (parms.containsKey("wifi")) {
@@ -323,7 +320,7 @@ public class ConfigServer extends NanoHTTPD {
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...请切换至新的WIFI再连接。</body></html>");
 			} else if (parms.containsKey("record")) {
 				final String record_state = parms.get("record_state");
-				MyMPUEntity myMPUEntity = G.mEntity;
+				MyMPUEntity myMPUEntity = G.sEntity;
 				myMPUEntity.setLocalRecord(record_state.equals("on"));
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...</body></html>");
@@ -467,7 +464,7 @@ public class ConfigServer extends NanoHTTPD {
 					long available = storageAvailable();
 					if (available == -1l) {
 						sb.append(String.format("\t\t\t<label >可用存储空间:未知</label><br/>\n"));
-					}else {
+					} else {
 						sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
 								available * 1.0f / 1073741824f));
 					}
@@ -485,7 +482,7 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t<form method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>模块本地录音功能:</h3>\n");
 					boolean islocalRecord = false;
-					MyMPUEntity entity = G.mEntity;
+					MyMPUEntity entity = G.sEntity;
 					islocalRecord = entity != null && entity.isLocalRecord();
 					if (islocalRecord) {
 						sb.append("\t\t\t\t开启<input type='radio' checked='checked' name='record_state' value='on' /><br />\n");
@@ -535,7 +532,7 @@ public class ConfigServer extends NanoHTTPD {
 			if (parms.containsKey("delete")) {
 				File f = new File(G.sRootPath, uri);
 				if (f.isDirectory()) {
-					String path = G.mEntity.getRecordingFilePath();
+					String path = G.sEntity.getRecordingFilePath();
 					if ((path != null) && new File(path).getParent().equals(f.getPath())) {
 						// 当前文件夹不能删
 					} else {
@@ -727,7 +724,7 @@ public class ConfigServer extends NanoHTTPD {
 					}
 
 					if (files != null) {
-						MyMPUEntity entity = G.mEntity;
+						MyMPUEntity entity = G.sEntity;
 						for (int i = 0; i < files.length; ++i) {
 							File curFile = new File(f, files[i]);
 							if (entity != null

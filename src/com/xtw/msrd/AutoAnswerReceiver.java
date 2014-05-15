@@ -42,7 +42,7 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 		// Check phone state
 		String phone_state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
 		String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-		MyMPUEntity entity = G.mEntity;
+		MyMPUEntity entity = G.sEntity;
 		
 		G.log(phone_state);
 		if (phone_state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {

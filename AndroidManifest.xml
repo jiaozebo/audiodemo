@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.xtw.msrd"
     android:versionCode="14"
-    android:versionName="9.10" >
+    android:versionName="9.13.1.temp" >
 
     <uses-sdk
         android:minSdkVersion="8"
@@ -57,8 +57,6 @@
             </intent-filter>
         </receiver>
 
-        <service android:name="com.xtw.msrd.MsrdService" >
-        </service>
         <service android:name="com.xtw.msrd.WifiAndPuServerService" >
         </service>
 
@@ -89,6 +87,11 @@
                 <data android:scheme="file" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name="com.xtw.msrd.NCIntentService"
+            android:exported="false" >
+        </service>
     </application>
 
 </manifest>
