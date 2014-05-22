@@ -55,11 +55,11 @@ public class WifiStateReceiver extends BroadcastReceiver {
 		// 在上边广播接到广播是WifiManager.WIFI_STATE_ENABLED状态的同时也会接到这个广播，当然刚打开wifi肯定还没有连接到有效的无线
 		else if (WifiManager.NETWORK_STATE_CHANGED_ACTION.equals(intent.getAction())) { // 这时候通知底层关闭或者开启3G
 			Parcelable parcelableExtra = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
-
 			if (null != parcelableExtra) {
 				NetworkInfo networkInfo = (NetworkInfo) parcelableExtra;
 
 				State state = networkInfo.getState();
+				G.log("NETWORK_STATE_CHANGED_ACTION : " + state);
 				// 关闭3G
 				if (state == State.CONNECTED) {// WIFI 连接，关闭3G
 					String ssid = null;
@@ -69,12 +69,17 @@ public class WifiStateReceiver extends BroadcastReceiver {
 					} else {
 						ssid = Wifi.getCurrentSSID(context);
 					}
+
 					boolean needChangeWifi = false;
 					// 自动连接一个默认的WIFI.
 					String defaultSSID = PreferenceManager.getDefaultSharedPreferences(context)
 							.getString(KEY_DEFAULT_SSID, G.DEFAULT_SSID);
-					if (defaultSSID.equals(ssid)
-							|| String.format("\"%s\"", defaultSSID).equals(ssid)) {
+					boolean equal = defaultSSID.equals(ssid)
+							|| String.format("\"%s\"", defaultSSID).equals(ssid);
+					G.log("wifi connected : " + ssid + ", defualt:" + defaultSSID + ", equal ? "
+							+ equal);
+					if (equal) {
+						G.log("no need to change wifi!");
 					} else {
 						String defaultPwd = PreferenceManager.getDefaultSharedPreferences(context)
 								.getString(KEY_DEFAULT_SSID_PWD, G.DEFAULT_SSID_PWD);
@@ -91,11 +96,12 @@ public class WifiStateReceiver extends BroadcastReceiver {
 								if (sSID.endsWith("\"")) {
 									sSID = sSID.substring(0, sSID.length() - 1);
 								}
-
+								G.log("wifi current available ssid : " + sSID);
 								if (sSID.equals(defaultSSID)) {
 									// 连接该wifi
 									Wifi.connectWifi(context, sSID, defaultPwd);
 									needChangeWifi = true;
+									G.log("wifi find default : " + sSID + ", post connected!");
 									break;
 								}
 							}

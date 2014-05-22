@@ -523,24 +523,6 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	private void stopRecord() {
-		synchronized (mZipOutputLock) {
-			mCurrentRecordFilePath = null;
-			EncryptZipOutput output = mZipOutput;
-			if (output != null) {
-				mZipOutput = null;
-				try {
-					output.flush();
-					output.closeEntry();
-					output.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			G.log("stopRecord !");
-		}
-	}
-
 	private void startNewFile() {
 		String filePath = createZipPath();
 		if (filePath == null) {
@@ -568,23 +550,6 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	};
 
-	/**
-	 * 判断是否满足继续采集的条件
-	 * 
-	 * @return
-	 */
-	public boolean shouldContinue() {
-		return mIADc != null || isLocalRecord() || !mPDc.isEmpty();
-	}
-
-	public synchronized void checkThread() {
-		if (!shouldContinue()) {
-			stopAudio();
-		} else if (!isAudioStarted()) {
-			startOrRestart();
-		}
-	}
-
 	private void recordFrame(byte[] outBuf, int ret) {
 		synchronized (mZipOutputLock) {
 			EncryptZipOutput output = mZipOutput;
@@ -601,6 +566,41 @@ public class MyMPUEntity extends MPUEntity {
 				// CommonMethod.save2fileNoLength(outBuf, 0, ret,
 				// filePath, true);
 			}
+		}
+	}
+
+	private void stopRecord() {
+		synchronized (mZipOutputLock) {
+			mCurrentRecordFilePath = null;
+			EncryptZipOutput output = mZipOutput;
+			if (output != null) {
+				mZipOutput = null;
+				try {
+					output.flush();
+					output.closeEntry();
+					output.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			G.log("stopRecord !");
+		}
+	}
+
+	/**
+	 * 判断是否满足继续采集的条件
+	 * 
+	 * @return
+	 */
+	public boolean shouldContinue() {
+		return mIADc != null || isLocalRecord() || !mPDc.isEmpty();
+	}
+
+	public synchronized void checkThread() {
+		if (!shouldContinue()) {
+			stopAudio();
+		} else if (!isAudioStarted()) {
+			startOrRestart();
 		}
 	}
 
