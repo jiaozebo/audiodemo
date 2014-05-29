@@ -428,8 +428,14 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("audio_cfg")) {
 				boolean highQuality = !TextUtils.isEmpty(parms.get("quality"));
 				String audio_fre = parms.get("audio_fre");
-				float f = Float.parseFloat(audio_fre);
-				int fre = (int) (f * 1000f);
+				int fre = PreferenceManager.getDefaultSharedPreferences(this).getInt(
+						G.KEY_AUDIO_FREQ, 24000);
+				try {
+					float f = Float.parseFloat(audio_fre);
+					fre = (int) (f * 1000f);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 				Editor edit = PreferenceManager.getDefaultSharedPreferences(this).edit();
 				edit.putBoolean(G.KEY_HIGH_QUALITY, highQuality).putInt(G.KEY_AUDIO_FREQ, fre)
 						.commit();
@@ -757,21 +763,22 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t\t<h3 style='margin:0;padding:0'>音频</h3>\n");
 					// freq begin
-					// int freq =
-					// PreferenceManager.getDefaultSharedPreferences(this).getInt(
-					// G.KEY_AUDIO_FREQ, 24000);
-					// sb.append(String.format(
-					// "\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
-					// freq == 8000 ? "checked='checked'" : ""));
-					// sb.append(String.format(
-					// "\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
-					// freq == 16000 ? "checked='checked'" : ""));
-					// sb.append(String.format(
-					// "\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
-					// freq == 24000 ? "checked='checked'" : ""));
-					// sb.append(String
-					// .format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
-					// freq == 44100 ? "checked='checked'" : ""));
+					if (G.USE_APN) {
+						int freq = PreferenceManager.getDefaultSharedPreferences(this).getInt(
+								G.KEY_AUDIO_FREQ, 24000);
+						sb.append(String.format(
+								"\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
+								freq == 8000 ? "checked='checked'" : ""));
+						sb.append(String
+								.format("\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
+										freq == 16000 ? "checked='checked'" : ""));
+						sb.append(String.format(
+								"\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
+								freq == 24000 ? "checked='checked'" : ""));
+						sb.append(String
+								.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
+										freq == 44100 ? "checked='checked'" : ""));
+					}
 					// freq end
 					if (pref.getBoolean(G.KEY_HIGH_QUALITY, true)) {
 						sb.append("\t\t\t\t高品质音频：<input type='checkbox' name='quality' checked='1'/><br />\n");
