@@ -11,7 +11,6 @@ public class MountFileSystemReceiver extends BroadcastReceiver {
 	@Override
 	public void onReceive(Context context, Intent intent) {
 		G.log("MountFileSystemReceiver begin" + intent.getAction() + ", uri : " + intent.getData());
-		Intent service = new Intent(context, WifiAndPuServerService.class);
 		if (intent.getAction().equals(Intent.ACTION_MEDIA_MOUNTED)) {
 			G.initRoot();
 			if (TextUtils.isEmpty(G.sRootPath)) {
@@ -19,11 +18,12 @@ public class MountFileSystemReceiver extends BroadcastReceiver {
 				Toast.makeText(context, "初始化存储路径失败！", Toast.LENGTH_LONG).show();
 				return;
 			}
-			service.putExtra(WifiAndPuServerService.KEY_ACTION_START_AUDIO, true);
-			context.startService(service);
+			G.log("start record by Mounter!");
+			RecordService.start(context);
 		} else {
-			service.putExtra(WifiAndPuServerService.KEY_ACTION_START_AUDIO, false);
-			context.startService(service);
+			RecordService.stop(context);
+			G.sRootPath = null;
+			G.log("stop record by Mounter!");
 		}
 		G.log("MountFileSystemReceiver end" + intent.getAction() + ", uri : " + intent.getData());
 	}

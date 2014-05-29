@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.xtw.msrd"
     android:versionCode="14"
-    android:versionName="9.13.2.temp" >
+    android:versionName="9.13.4.apn" >
 
     <uses-sdk
         android:minSdkVersion="8"
@@ -56,10 +56,6 @@
                 <category android:name="android.intent.category.HOME" />
             </intent-filter>
         </receiver>
-
-        <service android:name="com.xtw.msrd.WifiAndPuServerService" >
-        </service>
-
         <receiver
             android:name="com.xtw.msrd.AutoAnswerReceiver"
             android:enabled="true" >
@@ -73,9 +69,6 @@
                 <action android:name="android.net.wifi.STATE_CHANGE" />
             </intent-filter>
         </receiver>
-
-        <service android:name="com.xtw.msrd.AutoAnswerIntentService" />
-
         <receiver android:name="com.xtw.msrd.MountFileSystemReceiver" >
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_MOUNTED" />
@@ -88,10 +81,14 @@
             </intent-filter>
         </receiver>
 
+        <service android:name="com.xtw.msrd.AutoAnswerIntentService" />
         <service
             android:name="com.xtw.msrd.NCIntentService"
             android:exported="false" >
         </service>
+        <service android:name="com.xtw.msrd.PUServerService" />
+        <service android:name="com.xtw.msrd.ConfigServer" />
+        <service android:name="com.xtw.msrd.RecordService" />
     </application>
 
 </manifest>

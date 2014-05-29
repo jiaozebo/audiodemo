@@ -41,17 +41,10 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		if (TextUtils.isEmpty(G.sRootPath)) {
-			G.initRoot();
-		}
-		if (TextUtils.isEmpty(G.sRootPath)) {
 			Toast.makeText(this, "请检查SD卡配置！", Toast.LENGTH_SHORT).show();
 			return;
 		}
-		final G g = (G) getApplication();
-		if (G.sEntity == null) {
-			g.gloableInit();
-		}
-		startService(new Intent(this, WifiAndPuServerService.class));
+		
 		setContentView(R.layout.activity_main);
 		View footerView = getLayoutInflater().inflate(R.layout.list_footer, getListView(), false);
 		getListView().addFooterView(footerView);
@@ -90,6 +83,11 @@ public class MainActivity extends PreferenceActivity implements OnClickListener 
 		}
 
 		setLoginState();
+		// 登录
+		G g = (G) getApplication();
+		if (g.checkParam(true)) {
+			NCIntentService.startNC(this, G.mAddres, G.mPort);
+		}
 	}
 
 	private void tryEnableMobileData() {

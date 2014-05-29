@@ -33,13 +33,6 @@ public class NCIntentService extends Service {
 	 * @see IntentService
 	 */
 	// TODO: Customize helper method
-	public static void startNC(Context context, String address, int port) {
-		Intent intent = new Intent(context, NCIntentService.class);
-		intent.setAction(ACTION_START_NC);
-		intent.putExtra(EXTRA_PARAM1, address);
-		intent.putExtra(EXTRA_PARAM2, port);
-		context.startService(intent);
-	}
 
 	private volatile Thread mNCThread;
 
@@ -53,56 +46,62 @@ public class NCIntentService extends Service {
 			}
 			final String param1 = intent.getStringExtra(EXTRA_PARAM1);
 			final int port = intent.getIntExtra(EXTRA_PARAM2, 0);
-			mNCThread = new Thread("NC") {
+			if (port != 0) {
+				mNCThread = new Thread("NC") {
 
-				@Override
-				public void run() {
-					Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-					try {
-						int r = 0;
-						do {
-							G.setLoginStatus(G.STT_LOGINING);
+					@Override
+					public void run() {
+						MyMPUEntity entity = G.sEntity;
+						Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+						try {
+							int r = 0;
+							do {
+								G.setLoginStatus(G.STT_LOGINING);
+								LocalBroadcastManager.getInstance(NCIntentService.this)
+										.sendBroadcast(new Intent(ACTION_START_NC));
+								if (entity == null) {
+									return;
+								}
+								r = entity.loginBlock(param1, port, G.mFixAddr, "", G.sPUInfo);
+								if (r == 0) {
+									G.setLoginStatus(G.STT_LOGINED);
+									LocalBroadcastManager.getInstance(NCIntentService.this)
+											.sendBroadcast(new Intent(ACTION_START_NC));
+									NC7 nc7 = entity.getNC();
+									while (mNCThread != null) {
+										// @return 0表示成功；2表示成功接收或发送了数据；其它为错误码
+										int nRet = nc7.loop();
+										if (nRet == E.SUCCESS) {
+											try {
+												Thread.sleep(50);
+											} catch (InterruptedException e) {
+												e.printStackTrace();
+											}
+										} else if (nRet != 2) {
+											break;
+										}
+									}
+								} else {
+									G.setLoginStatus(G.STT_PRELOGIN);
+									LocalBroadcastManager.getInstance(NCIntentService.this)
+											.sendBroadcast(new Intent(ACTION_START_NC));
+									Thread.sleep(5000);
+								}
+							} while (mNCThread != null);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						} finally {
+							if (entity != null) {
+								entity.logout();
+							}
+							G.setLoginStatus(G.STT_PRELOGIN);
 							LocalBroadcastManager.getInstance(NCIntentService.this).sendBroadcast(
 									new Intent(ACTION_START_NC));
-							r = G.sEntity.loginBlock(param1, port, G.mFixAddr, "", G.sPUInfo);
-							if (r == 0) {
-								G.setLoginStatus(G.STT_LOGINED);
-								LocalBroadcastManager.getInstance(NCIntentService.this)
-										.sendBroadcast(new Intent(ACTION_START_NC));
-								NC7 nc7 = G.sEntity.getNC();
-								while (mNCThread != null) {
-									// @return 0表示成功；2表示成功接收或发送了数据；其它为错误码
-									int nRet = nc7.loop();
-									if (nRet == E.SUCCESS) {
-										try {
-											Thread.sleep(50);
-										} catch (InterruptedException e) {
-											e.printStackTrace();
-										}
-									} else if (nRet != 2) {
-										break;
-									}
-								}
-							} else {
-								G.setLoginStatus(G.STT_PRELOGIN);
-								LocalBroadcastManager.getInstance(NCIntentService.this)
-										.sendBroadcast(new Intent(ACTION_START_NC));
-								Thread.sleep(5000);
-							}
-						} while (mNCThread != null);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					} finally {
-						G.sEntity.logout();
-						G.setLoginStatus(G.STT_PRELOGIN);
-						LocalBroadcastManager.getInstance(NCIntentService.this).sendBroadcast(
-								new Intent(ACTION_START_NC));
+						}
 					}
-				}
 
-			};
-			if (port != 0) {
-				mNCThread.start();				
+				};
+				mNCThread.start();
 			}
 		}
 		return START_REDELIVER_INTENT;
@@ -122,6 +121,14 @@ public class NCIntentService extends Service {
 			}
 		}
 		super.onDestroy();
+	}
+
+	public static void startNC(Context context, String address, int port) {
+		Intent intent = new Intent(context, NCIntentService.class);
+		intent.setAction(ACTION_START_NC);
+		intent.putExtra(EXTRA_PARAM1, address);
+		intent.putExtra(EXTRA_PARAM2, port);
+		context.startService(intent);
 	}
 
 	public static void stopNC(Context context) {

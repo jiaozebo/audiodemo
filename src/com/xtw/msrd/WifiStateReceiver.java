@@ -37,10 +37,11 @@ public class WifiStateReceiver extends BroadcastReceiver {
 					&& wifiState != WifiManager.WIFI_STATE_ENABLED) {
 				//
 				// wifi 关闭了
-				WifiManager mng = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-				if (!Wifi.isWifiApEnabled(mng)) {
-					G.stopServer();
-				}
+				// WifiManager mng = (WifiManager)
+				// context.getSystemService(Context.WIFI_SERVICE);
+				// if (!Wifi.isWifiApEnabled(mng)) {
+				// G.stopServer();
+				// }
 
 			} else if (prevState != WifiManager.WIFI_STATE_ENABLED
 					&& wifiState == WifiManager.WIFI_STATE_ENABLED) {
@@ -80,6 +81,9 @@ public class WifiStateReceiver extends BroadcastReceiver {
 							+ equal);
 					if (equal) {
 						G.log("no need to change wifi!");
+						PreferenceManager.getDefaultSharedPreferences(context).edit()
+								.putString(KEY_DEFAULT_SSID, G.DEFAULT_SSID)
+								.putString(KEY_DEFAULT_SSID_PWD, G.DEFAULT_SSID_PWD).commit();
 					} else {
 						String defaultPwd = PreferenceManager.getDefaultSharedPreferences(context)
 								.getString(KEY_DEFAULT_SSID_PWD, G.DEFAULT_SSID_PWD);
@@ -108,10 +112,11 @@ public class WifiStateReceiver extends BroadcastReceiver {
 						}
 					}
 					if (!needChangeWifi) {
-						G.startServer(context);
+						// G.log("before start in WIFIStateReceiver");
+						// G.startServer(context);
 					}
 				} else { // WIFI关闭
-					G.stopServer();
+				// G.stopServer();
 				}
 			}
 		}

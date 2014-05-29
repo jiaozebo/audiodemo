@@ -6,12 +6,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
 
-import junit.framework.Assert;
 import util.CommonMethod;
 import android.annotation.TargetApi;
 import android.app.Application;
@@ -27,7 +23,6 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
@@ -38,7 +33,6 @@ import com.crearo.config.StorageOptions;
 import com.crearo.mpu.sdk.Common;
 import com.crearo.mpu.sdk.MPUHandler;
 import com.crearo.mpu.sdk.client.PUInfo;
-import com.crearo.puserver.PUServerThread;
 
 public class G extends Application implements OnSharedPreferenceChangeListener {
 	private static final String DEFAULT_PORT = "8958";
@@ -50,7 +44,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	/**
 	 * true l,false f
 	 */
-	public static final boolean USE_APN = false;
+	public static boolean USE_APN = false;
 	private volatile static int mLoginStatus = STT_PRELOGIN;
 
 	public static final String KEY_SERVER_ADDRESS = "KEY_SERVER_ADDRESS";
@@ -102,8 +96,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 * 正在登录的线程，不等于null表示需要循环登录
 	 */
 	public volatile static String sRootPath;
-	private static PUServerThread mServer;
-	private static ConfigServer sConfigServer;
 
 	/**
 	 * 该值表示是否在mount了之后启动录像
@@ -125,6 +117,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			sVersionCode = "0";
 			e1.printStackTrace();
 		}
+		USE_APN = sVersionCode.contains(".apn");
 		Thread.UncaughtExceptionHandler uncaughtExceptionHandler = new Thread.UncaughtExceptionHandler() {
 
 			@Override
@@ -151,13 +144,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 				System.exit(-1);
 			}
 		};
-		// Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
+		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
 
-	}
-
-	public void gloableInit() {
-		Assert.assertTrue(sEntity == null);
-		sEntity = new MyMPUEntity(this);
 		SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 		sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 		sPUInfo.puid = pref.getString("key_puid", null);
@@ -181,6 +169,21 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		mFixAddr = prf.getBoolean(KEY_SERVER_FIXADDR, true);
 		mPreviewVideo = prf.getBoolean(KEY_SERVER_PREVIEW_VIDEO, false);
 		prf.registerOnSharedPreferenceChangeListener(this);
+
+		sEntity = new MyMPUEntity(this);
+
+		// wifi 配置
+		ConfigServer.start(this, null, 8080);
+
+		// 直连
+		Intent i = new Intent(this, PUServerService.class);
+		this.startService(i);
+
+		initRoot();
+		if (!TextUtils.isEmpty(sRootPath)) {
+			log("start record by G!");
+			RecordService.start(this);
+		}
 	}
 
 	public static void initRoot() {
@@ -333,45 +336,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			// TODO: handle exception
 		}
 		return result;
-	}
-
-	public static void startServer(Context context) {
-		if (mServer == null) {
-			PUInfo info = new PUInfo();
-			info.puid = sPUInfo.puid;
-			info.name = "audio";
-			info.cameraName = "camera";
-			info.mMicName = "camera";
-			info.mSpeakerName = null;
-			info.mGPSName = null;
-
-			PUServerThread p = new PUServerThread(context, info, 8866);
-			p.start();
-			p.setCallbackHandler(sEntity);
-			mServer = p;
-		}
-		if (sConfigServer == null) {
-			try {
-				sConfigServer = new ConfigServer(context, G.sRootPath);
-				sConfigServer.start();
-			} catch (IOException e) {
-				sConfigServer = null;
-				e.printStackTrace();
-			}
-		}
-
-	}
-
-	public static void stopServer() {
-		if (mServer != null) {
-			mServer.setCallbackHandler(null);
-			mServer.quit();
-			mServer = null;
-		}
-		if (sConfigServer != null) {
-			sConfigServer.stop();
-			sConfigServer = null;
-		}
 	}
 
 	public static void log(String message) {

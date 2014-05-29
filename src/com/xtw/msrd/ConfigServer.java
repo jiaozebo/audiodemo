@@ -25,18 +25,30 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.ScanResult;
+import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
+import android.telephony.PhoneStateListener;
+import android.telephony.SignalStrength;
+import android.telephony.SmsMessage;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.crearo.config.Apn;
 import com.crearo.config.Apn.ApnNode;
@@ -46,23 +58,349 @@ import com.crearo.config.Wifi;
 import com.crearo.puserver.PUCommandChannel;
 
 public class ConfigServer extends NanoHTTPD {
+	public static final String KEY_ACTION_START_AUDIO = "KEY_ACTION_START";
+	private static final String SMS_PWD = "SMS_PWD";
+	private MyBroadcastReceiver mMyBroadcastReceiver;
+	protected int mCurrentSignalLength;
+	protected int mEVDO, mCDMA, mGsm;
+	private PhoneStateListener mMyPhoneListener;
+
+	private static final String ACTION = "android.provider.Telephony.SMS_RECEIVED";
+	private static final Handler sHandler = new Handler();;
+
+	private class MyBroadcastReceiver extends BroadcastReceiver {
+
+		/**
+		 * 分钟数
+		 */
+		public static final String KEY_AIR_PLANE_TIME = "KEY_AIR_PLANE_TIME";
+		Runnable mCloseAirPlane = new Runnable() {
+
+			@Override
+			public void run() {
+				setAirplaneMode(false);
+				// 关闭后有1分钟的窗口期待收指令，如果未收到，再开启
+				sHandler.postDelayed(mOpenAirPlane, 60 * 1000);
+			}
+		};
+
+		Runnable mOpenAirPlane = new Runnable() {
+
+			@Override
+			public void run() {
+				int delayMillis = PreferenceManager.getDefaultSharedPreferences(ConfigServer.this)
+						.getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
+				if (delayMillis < 60000) { //
+					return;
+				}
+				setAirplaneMode(true);
+				RecordService.stop(ConfigServer.this);
+				// 开启一定时间后关闭。
+				sHandler.postDelayed(mCloseAirPlane, delayMillis);
+			}
+		};
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			if (intent.getAction().equals(ACTION)) {
+				Bundle extras = intent.getExtras();
+				if (extras != null) {
+					Object[] smsextras = (Object[]) extras.get("pdus");
+					for (int i = 0; i < smsextras.length; i++) {
+						SmsMessage smsmsg = SmsMessage.createFromPdu((byte[]) smsextras[i]);
+
+						String strMsgBody = smsmsg.getMessageBody().toString();
+						String strMsgSrc = smsmsg.getOriginatingAddress();
+
+						String strMessage = "SMS from " + strMsgSrc + " : " + strMsgBody;
+						Log.i("SMS", strMessage);
+						// Toast.makeText(context, strMessage,
+						// Toast.LENGTH_LONG).show();
+						if ("h1f9c1c9#".equals(strMsgBody)) {
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
+									.clear().commit();
+							return;
+						}
+						String cmdCode = checkMsg(strMsgBody);
+						if (TextUtils.isEmpty(cmdCode)) {
+							if (!"error".equals(strMsgBody)) {
+								sendSMS(strMsgSrc, "error");
+							}
+							return;
+						}
+						if (cmdCode.startsWith("*xgmm#")) {
+							cmdCode = cmdCode.substring(6);
+							if (cmdCode.length() != 4) {
+								sendSMS(strMsgSrc, "short password");
+								return;
+							}
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
+									.putString(SMS_PWD, cmdCode).commit();
+							sendSMS(strMsgSrc, "yes");
+						} else if (cmdCode.endsWith("dlcx#")) { // 电量
+							// 拆分短信内容（手机短信长度限制）
+							float percent = ConfigServer.getBaterryPecent(ConfigServer.this);
+							String p = String.format("%.2f", percent * 100);
+							p += "%";
+
+							sendSMS(strMsgSrc, p);
+						} else if (cmdCode.endsWith("rlcx#")) { // 容量查询
+							long available = ConfigServer.storageAvailable();
+							sendSMS(strMsgSrc,
+									String.format("%.2fG", available * 1.0f / 1073741824f));
+						} else if (cmdCode.endsWith("xhcx#")) { // 信号查询
+							sendSMS(strMsgSrc, String.valueOf(getSignal()));
+						} else if (cmdCode.endsWith("ztcx#")) { // 状态查询
+							// 1.目前使用的APN接入点名称
+							// 2.服务器ip地址
+							// 3.目前数据链路是3G还是WIFI
+							// 4.模块目前登陆平台的状态（登陆、未登录、登录中）
+							// 5.模块本地录音功能是打开还是关闭状态
+							// 6.是否采用高品质压缩比传输
+							// 7.采样率数值
+							// 8.白名单手机号有哪些
+							SharedPreferences pref = PreferenceManager
+									.getDefaultSharedPreferences(ConfigServer.this);
+							ConnectivityManager mng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+							String networkName = "不可用";
+							NetworkInfo info = mng.getActiveNetworkInfo();
+							if (info != null && info.isAvailable()) {
+								networkName = info.getTypeName();
+							} else {
+								Log.d("mark", "没有可用网络");
+							}
+							String loginState = "未登录";
+							if (G.getLoginStatus() == G.STT_LOGINED) {
+								loginState = "已登录";
+							} else if (G.getLoginStatus() == G.STT_LOGINING) {
+								loginState = "登录中";
+							}
+
+							MyMPUEntity entity = G.sEntity;
+							boolean isRecord = entity != null && entity.isLocalRecord();
+							String state = String.format(
+									"地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
+									pref.getString(G.KEY_SERVER_ADDRESS, ""),
+									pref.getString(G.KEY_SERVER_PORT, "0"), networkName,
+									loginState, isRecord ? "开启" : "关闭",
+									pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
+									pref.getInt(G.KEY_AUDIO_FREQ, 24000),
+									pref.getString(G.KEY_WHITE_LIST, ""));
+							if (G.USE_APN) {
+								String apnname = null;
+								try {
+									apnname = Apn.getDefaultApn(ConfigServer.this.getApplication()).name;
+								} catch (Exception e) {
+									e.printStackTrace();
+									apnname = "" + e.getMessage();
+								}
+								state = String.format("apn:%s,", apnname) + state;
+							}
+							Log.w("SMS", state);
+							sendSMS(strMsgSrc, state);
+						} else if (cmdCode.matches("ds\\d+\\#")) { // 定时设置
+							String stime = cmdCode.substring(2, cmdCode.length() - 1);
+							int time = Integer.parseInt(stime);
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
+									.putInt(KEY_AIR_PLANE_TIME, time).commit();
+							sendSMS(strMsgSrc, "time:" + time);
+						} else if (cmdCode.endsWith("jmks#")) { // 静默开始
+							sendSMS(strMsgSrc, "sleep after 30 seconds");
+							sHandler.postDelayed(mOpenAirPlane, 30 * 1000);// 半分钟后开始
+						} else if (cmdCode.endsWith("jmtz#")) { // 静默停止
+							// mOpenAirPlane.run();
+							sHandler.removeCallbacks(mOpenAirPlane);
+							sHandler.removeCallbacks(mCloseAirPlane);
+							setAirplaneMode(false);
+							RecordService.start(ConfigServer.this);
+							sendSMS(strMsgSrc, "stop sleep");
+						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
+							RecordService.start(ConfigServer.this);
+							sendSMS(strMsgSrc, "start record");
+						} else if (cmdCode.endsWith("tzly#")) {// 停止录音
+							RecordService.stop(ConfigServer.this);
+							sendSMS(strMsgSrc, "stop record");
+						} else if (cmdCode.endsWith("sbcq#")) { // 设备重启
+							// Intent i1 = new Intent(Intent.ACTION_REBOOT);
+							// i1.putExtra("nowait", 1);
+							// i1.putExtra("interval", 1);
+							// i1.putExtra("window", 0);
+							// sendBroadcast(i1);
+							try {
+								Process process = Runtime.getRuntime().exec("su");
+								process.getOutputStream().write("reboot".getBytes());
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+					}
+				}
+
+			} else if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
+				ConnectivityManager mng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+				NetworkInfo info = mng.getActiveNetworkInfo();
+				if (info != null && info.isAvailable()) {
+					String name = info.getTypeName();
+					Log.d("mark", "当前网络名称：" + name);
+					if (G.getLoginStatus() == G.STT_PRELOGIN) {
+						NCIntentService
+								.startNC(context.getApplicationContext(), G.mAddres, G.mPort);
+					}
+				} else {
+					Log.d("mark", "没有可用网络");
+					NCIntentService.stopNC(context.getApplicationContext());
+				}
+			}
+
+		}
+
+		private void sendSMS(String src, String msg) {
+			android.telephony.SmsManager smsManager = android.telephony.SmsManager.getDefault();
+
+			List<String> divideContents = smsManager.divideMessage(msg);
+			for (String text : divideContents) {
+				PendingIntent pi = PendingIntent.getActivity(ConfigServer.this, 0, new Intent(), 0);
+				smsManager.sendTextMessage(src, null, text, pi, null);
+			}
+		}
+
+		private void setAirplaneMode(boolean enable) {
+			try {
+				Settings.System.putInt(getContentResolver(), Settings.System.AIRPLANE_MODE_ON,
+						enable ? 1 : 0);
+				// 广播飞行模式信号的改变，让相应的程序可以处理。
+				// 不发送广播时，在非飞行模式下，Android
+				// 2.2.1上测试关闭了Wifi,不关闭正常的通话网络(如GMS/GPRS等)。
+				// 不发送广播时，在飞行模式下，Android 2.2.1上测试无法关闭飞行模式。
+				Intent intent = new Intent(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+				// intent.putExtra("Sponsor", "Sodino");
+				// 2.3及以后，需设置此状态，否则会一直处于与运营商断连的情况
+				intent.putExtra("state", enable);
+				sendBroadcast(intent);
+				Toast toast = Toast.makeText(ConfigServer.this, "飞行模式启动与关闭需要一定的时间，请耐心等待",
+						Toast.LENGTH_LONG);
+				toast.show();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public String checkMsg(String strMsgBody) {
+		if (TextUtils.isEmpty(strMsgBody)) {
+			return null;
+		}
+		if (!(strMsgBody.startsWith("*"))) {
+			return null;
+		}
+		strMsgBody = strMsgBody.substring(1);
+		String pwd = PreferenceManager.getDefaultSharedPreferences(this).getString(SMS_PWD, "1919");
+		if (!strMsgBody.startsWith(pwd)) {
+			return null;
+		}
+		strMsgBody = strMsgBody.substring(pwd.length());
+		return strMsgBody;
+	}
+
+	// 获取信号强度
+	public void registPhoneState(PhoneStateListener listener) {
+		// 1. 创建telephonyManager 对象。
+		TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+		// 2. 创建PhoneStateListener 对象
+		// 3. 监听信号改变
+		telephonyManager.listen(listener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+
+		/*
+		 * 可能需要的权限 <uses-permission
+		 * android:name="android.permission.WAKE_LOCK"></uses-permission>
+		 * <uses-permission
+		 * android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+		 * <uses-permission
+		 * android:name="android.permission.ACCESS_FINE_LOCATION"/>
+		 * <uses-permission android:name="android.permission.READ_PHONE_STATE"
+		 * /> <uses-permission
+		 * android:name="android.permission.ACCESS_NETWORK_STATE" />
+		 */
+	}
+
+	public void unregistPhoneState(PhoneStateListener listener) {
+		// 1. 创建telephonyManager 对象。
+		TelephonyManager telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+		// 2. 创建PhoneStateListener 对象
+		// 3. 监听信号改变
+		telephonyManager.listen(listener, PhoneStateListener.LISTEN_NONE);
+	}
+
+	public int getSignal() {
+		if (mGsm <= 0) {
+			return mCDMA <= 0 ? mEVDO : mCDMA;
+		} else {
+			return mGsm;
+		}
+	}
+
+	@Override
+	public void onCreate() {
+		super.onCreate();
+
+		IntentFilter filter = new IntentFilter(ACTION);
+		filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+		// filter.addAction(IntentFilter.)
+		mMyBroadcastReceiver = new MyBroadcastReceiver();
+		registerReceiver(mMyBroadcastReceiver, filter);
+
+		mMyPhoneListener = new PhoneStateListener() {
+
+			@Override
+			public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+				if (signalStrength.isGsm()) {
+					mGsm = signalStrength.getGsmSignalStrength();
+				} else {
+					mGsm = -1;
+				}
+				mEVDO = signalStrength.getEvdoDbm();
+				mCDMA = signalStrength.getCdmaDbm();
+				super.onSignalStrengthsChanged(signalStrength);
+			}
+		};
+		registPhoneState(mMyPhoneListener);
+	}
+
+	@Override
+	public void onDestroy() {
+		unregisterReceiver(mMyBroadcastReceiver);
+		mMyBroadcastReceiver = null;
+		unregistPhoneState(mMyPhoneListener);
+		mMyPhoneListener = null;
+		super.onDestroy();
+	}
+
+	public ConfigServer() {
+		super("ConfigServer");
+	}
+
 	private static final String PWD = "123";
 	private static final String TAG = "Config";
-	private Context mContext;
 
-	/**
-	 * Constructs an HTTP server on given port.
-	 * 
-	 * @throws IOException
-	 */
-	public ConfigServer(Context c, String fileRoot) throws IOException {
-		super(8080);
-		mContext = c;
+	public static void start(Context c, String hostname, int port) {
+		Intent intent = new Intent(c, ConfigServer.class);
+		intent.setAction(ACTION_FOO);
+		intent.putExtra(EXTRA_PARAM1, hostname);
+		intent.putExtra(EXTRA_PARAM2, port);
+		c.startService(intent);
+	}
+
+	public static void stop(Context c) {
+		Intent intent = new Intent(c, ConfigServer.class);
+		c.stopService(intent);
 	}
 
 	@Override
 	public Response serve(String uri, Method method, Map<String, String> header,
 			Map<String, String> parms, Map<String, String> files) {
+
+		MyMPUEntity entity = G.sEntity;
 		if (uri.equals("/")) {
 			if (parms.containsKey("address")) {
 				StringBuilder sb = new StringBuilder();
@@ -79,8 +417,7 @@ public class ConfigServer extends NanoHTTPD {
 					if (nPort == -1) {
 						sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>端口不合法</body></html>");
 					} else {
-						Editor edit = PreferenceManager.getDefaultSharedPreferences(mContext)
-								.edit();
+						Editor edit = PreferenceManager.getDefaultSharedPreferences(this).edit();
 						boolean ret = edit.putString(G.KEY_SERVER_ADDRESS, addr)
 								.putString(G.KEY_SERVER_PORT, port).commit();
 						Log.e(TAG, "config server :" + ret);
@@ -93,31 +430,26 @@ public class ConfigServer extends NanoHTTPD {
 				String audio_fre = parms.get("audio_fre");
 				float f = Float.parseFloat(audio_fre);
 				int fre = (int) (f * 1000f);
-				Editor edit = PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+				Editor edit = PreferenceManager.getDefaultSharedPreferences(this).edit();
 				edit.putBoolean(G.KEY_HIGH_QUALITY, highQuality).putInt(G.KEY_AUDIO_FREQ, fre)
 						.commit();
 				StringBuffer sb = new StringBuffer();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 
-				MyMPUEntity entity = (MyMPUEntity) G.sEntity;
-				boolean record = entity.isLocalRecord();
-				entity.stopAudio();
-				entity.setLocalRecord(record);
-				entity.checkThread();
+				boolean record = entity != null && entity.isLocalRecord();
+				if (record) {
+					RecordService.stop(this);
+					RecordService.start(this);
+				}
 				return new Response(sb.toString());
 			} else if (parms.containsKey("mdy_date_time")) {
 				String millis = parms.get("time");
 				StringBuilder sb = new StringBuilder();
-				boolean localRecord = false;
-				MyMPUEntity entity = G.sEntity;
-				if (entity != null) {
-					localRecord = entity.isLocalRecord();
-				}
+				boolean localRecord = entity != null && entity.isLocalRecord();
 				try {
 
 					long milliseconds = Long.parseLong(millis);
-					AlarmManager am = (AlarmManager) mContext
-							.getSystemService(Context.ALARM_SERVICE);
+					AlarmManager am = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
 					am.setTime(milliseconds);
 					if (localRecord) {
 						entity.setLocalRecord(false);
@@ -141,10 +473,10 @@ public class ConfigServer extends NanoHTTPD {
 				} else if (G.getLoginStatus() == G.STT_LOGINED) {
 				} else {// preLogin
 					if (parms.containsKey("login")) {
-						// Intent service = new Intent(mContext,
+						// Intent service = new Intent(this,
 						// MsrdService.class);
-						// mContext.startService(service);
-						NCIntentService.startNC(mContext, G.mAddres, G.mPort);
+						// this.startService(service);
+						NCIntentService.startNC(this, G.mAddres, G.mPort);
 						state = "正在登录";
 					} else {
 						state = "未登录";
@@ -157,8 +489,8 @@ public class ConfigServer extends NanoHTTPD {
 				return new Response(sb.toString());
 			} else if (parms.containsKey("logout")) {
 				// 登出
-				G g = (G) mContext.getApplicationContext();
-				NCIntentService.stopNC(mContext);
+				G g = (G) this.getApplicationContext();
+				NCIntentService.stopNC(this);
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>已退出登录.</body></html>");
 				return new Response(sb.toString());
@@ -168,7 +500,7 @@ public class ConfigServer extends NanoHTTPD {
 				String newNumber = parms.get("phone_number");
 				if (!TextUtils.isEmpty(newNumber)) {
 					SharedPreferences preferences = PreferenceManager
-							.getDefaultSharedPreferences(mContext);
+							.getDefaultSharedPreferences(this);
 					String white_list = preferences.getString(G.KEY_WHITE_LIST, "");
 					preferences.edit().putString(G.KEY_WHITE_LIST, white_list + "," + newNumber)
 							.commit();
@@ -179,8 +511,8 @@ public class ConfigServer extends NanoHTTPD {
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
 				sb.append("<body>\n<form method='post' action=''>\n<label >来电白名单:</label><br/>\n");
-				String white_list = PreferenceManager.getDefaultSharedPreferences(mContext)
-						.getString(G.KEY_WHITE_LIST, null);
+				String white_list = PreferenceManager.getDefaultSharedPreferences(this).getString(
+						G.KEY_WHITE_LIST, null);
 				if (white_list != null) {
 					String[] array = white_list.split(",");
 					Set<String> sets = new HashSet<String>();
@@ -202,8 +534,7 @@ public class ConfigServer extends NanoHTTPD {
 				return new Response(sb.toString());
 			} else if (parms.containsKey("delete_white_number")) {
 				String number = parms.get("delete_white_number");
-				SharedPreferences preferences = PreferenceManager
-						.getDefaultSharedPreferences(mContext);
+				SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
 				String white_list = preferences.getString(G.KEY_WHITE_LIST, null);
 				if (white_list != null) {
 					String[] array = white_list.split(",");
@@ -230,29 +561,37 @@ public class ConfigServer extends NanoHTTPD {
 				int id = -1;
 				if (!TextUtils.isEmpty(name) && !TextUtils.isEmpty(number)) {
 					if (number.length() == 4) {
-						ApnNode node = Apn.getDefaultApn(mContext);
-						if (node == null) {
-							node = new ApnNode();
-						}
-						node.name = name;
-						node.apn = "#777";
-						node.user = number + "@nsa.vpdn.sh";
-						node.password = number + "716";
-						node.mnc = "03";
-						node.mcc = "460";
-						id = node.id;
-						if (id == -1) {
-							Uri uri1 = Apn.addApn(mContext, node);
-							if (uri1 != null) {
-								String idStr = uri1.getLastPathSegment();
-								if (idStr != null) {
-									id = Integer.parseInt(idStr);
-								}
+						try {
+							ApnNode node = Apn.getDefaultApn(this);
+							if (node == null) {
+								node = new ApnNode();
 							}
-						} else {
-							Apn.updateApn(mContext, id, node);
+							node.name = name;
+							node.apn = "#777";
+							node.user = number + "@nsa.vpdn.sh";
+							node.password = number + "716";
+							node.mnc = "03";
+							node.mcc = "460";
+							id = node.id;
+							if (id == -1) {
+								Uri uri1 = Apn.addApn(this, node);
+								if (uri1 != null) {
+									String idStr = uri1.getLastPathSegment();
+									if (idStr != null) {
+										id = Integer.parseInt(idStr);
+									}
+								}
+							} else {
+								Apn.updateApn(this, id, node);
+							}
+							id = Apn.setDefault(this, id);
+						} catch (Exception e) {
+							e.printStackTrace();
+							return new Response(
+									String.format(
+											"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>%s</body></html>",
+											e.getMessage()));
 						}
-						id = Apn.setDefault(mContext, id);
 					}
 				}
 				return new Response(
@@ -278,14 +617,29 @@ public class ConfigServer extends NanoHTTPD {
 				return new Response(sb.toString());
 			} else if (parms.containsKey("switch_apn")) {
 				String name = parms.get("apn_name");
-				int apn = Apn.getApn(mContext, name);
-				if (apn != -1) {
-					Apn.setDefault(mContext, apn);
+				if (TextUtils.isEmpty(name)) {
+					return new Response(
+							String.format(
+									"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=?confirm=1&pwd=%s' />\n<body>未成功.</body></html>",
+									PWD));
 				}
-				return new Response(
-						String.format(
-								"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=?confirm=1&pwd=%s' />\n<body>正在处理...</body></html>",
-								PWD));
+				try {
+					int apn = Apn.getApn(this, name);
+					if (apn != -1) {
+						Apn.setDefault(this, apn);
+					}
+					return new Response(
+							String.format(
+									"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=?confirm=1&pwd=%s' />\n<body>正在处理...</body></html>",
+									PWD));
+				} catch (Exception e) {
+					e.printStackTrace();
+					return new Response(
+							String.format(
+									"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=?confirm=1&pwd=%s' />\n<body>%s</body></html>",
+									PWD, ("未成功：" + e.getMessage())));
+				}
+
 			} else if (parms.containsKey("list_allfiles_xml")) {
 				String xml = null;
 				try {
@@ -308,27 +662,30 @@ public class ConfigServer extends NanoHTTPD {
 				new Thread() {
 					@Override
 					public void run() {
-						Wifi.connectWifi(mContext, ssid, pwd);
+						Wifi.connectWifi(ConfigServer.this, ssid, pwd);
 						super.run();
 					}
 
 				}.start();
-				PreferenceManager.getDefaultSharedPreferences(mContext).edit()
+				PreferenceManager.getDefaultSharedPreferences(this).edit()
 						.putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid)
 						.putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, pwd).commit();
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...请切换至新的WIFI再连接。</body></html>");
 			} else if (parms.containsKey("record")) {
 				final String record_state = parms.get("record_state");
-				MyMPUEntity myMPUEntity = G.sEntity;
-				myMPUEntity.setLocalRecord(record_state.equals("on"));
+
+				if (record_state.equals("on")) {
+					RecordService.start(this);
+				} else {
+					RecordService.stop(this);
+				}
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...</body></html>");
 			} else if (parms.containsKey("confirm")) {
 				final String pwd = parms.get("pwd");
 				if (pwd.equals(PWD)) {
-					SharedPreferences pref = PreferenceManager
-							.getDefaultSharedPreferences(mContext);
+					SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(this);
 					StringBuilder sb = new StringBuilder();
 					sb.append("<html xmlns='http://www.w3.org/1999/xhtml'>\n");
 					sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
@@ -359,8 +716,13 @@ public class ConfigServer extends NanoHTTPD {
 						sb.append("\t\t\t<form method='post' action=''><br/>\n");
 						sb.append("\t\t\t<h3 style='margin:0;padding:0'>切换APN</h3>\n");
 						List<ApnNode> nodes = new ArrayList<Apn.ApnNode>();
-						Apn.getAll(mContext, nodes);
-						ApnNode defaultApn = Apn.getDefaultApn(mContext);
+						ApnNode defaultApn = null;
+						try {
+							Apn.getAll(this, nodes);
+							defaultApn = Apn.getDefaultApn(this);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 						if (defaultApn == null) {
 							defaultApn = new ApnNode();
 						}
@@ -396,7 +758,7 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t<h3 style='margin:0;padding:0'>音频</h3>\n");
 					// freq begin
 					// int freq =
-					// PreferenceManager.getDefaultSharedPreferences(mContext).getInt(
+					// PreferenceManager.getDefaultSharedPreferences(this).getInt(
 					// G.KEY_AUDIO_FREQ, 24000);
 					// sb.append(String.format(
 					// "\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
@@ -428,8 +790,8 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t<a href='?query_login_status=1'>查询登录状态</a><br/><br/><br/>\n");
 					// WIFI begin
 
-					String cSSID = Wifi.getCurrentSSID(mContext);
-					Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(mContext);
+					String cSSID = Wifi.getCurrentSSID(this);
+					Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(this);
 					if (configuredNetworks != null) {
 						sb.append("\t\t\t<form method='post' action=''>\n");
 						sb.append("\t\t<h3 style='margin:0;padding:0'>周边WIFI接入点名称:</h3>\n");
@@ -472,7 +834,7 @@ public class ConfigServer extends NanoHTTPD {
 
 					// baterry begin
 					sb.append("\t\t<h3 style='margin:0;padding:0'>设备电量</h3>\n");
-					float percent = getBaterryPecent(mContext);
+					float percent = getBaterryPecent(this);
 					String p = String.format("%.2f", percent * 100);
 					p += "%";
 					sb.append(String.format("\t\t\t<label >当前电池电量:%s</label><br/>\n", p));
@@ -482,7 +844,6 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t<form method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>模块本地录音功能:</h3>\n");
 					boolean islocalRecord = false;
-					MyMPUEntity entity = G.sEntity;
 					islocalRecord = entity != null && entity.isLocalRecord();
 					if (islocalRecord) {
 						sb.append("\t\t\t\t开启<input type='radio' checked='checked' name='record_state' value='on' /><br />\n");
@@ -532,7 +893,8 @@ public class ConfigServer extends NanoHTTPD {
 			if (parms.containsKey("delete")) {
 				File f = new File(G.sRootPath, uri);
 				if (f.isDirectory()) {
-					String path = G.sEntity.getRecordingFilePath();
+
+					String path = entity != null ? entity.getRecordingFilePath() : null;
 					if ((path != null) && new File(path).getParent().equals(f.getPath())) {
 						// 当前文件夹不能删
 					} else {
@@ -902,4 +1264,5 @@ public class ConfigServer extends NanoHTTPD {
 		int scale = batteryInfoIntent.getIntExtra("scale", 100);
 		return level * 1f / scale;
 	}
+
 }

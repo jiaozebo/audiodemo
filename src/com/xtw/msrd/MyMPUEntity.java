@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import junit.framework.Assert;
+
 import util.DES;
 import util.MD5;
 
@@ -30,6 +32,7 @@ import android.os.Build.VERSION_CODES;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
 import android.util.Log;
 import c7.CRChannel;
 import c7.DC7;
@@ -77,7 +80,11 @@ public class MyMPUEntity extends MPUEntity {
 
 	public MyMPUEntity(Context context) {
 		super(context);
-		File f = new File(G.sRootPath);
+		String path = G.sRootPath;
+		if (TextUtils.isEmpty(path)) {
+			return;
+		}
+		File f = new File(path);
 		f.mkdirs();
 	}
 
@@ -151,10 +158,8 @@ public class MyMPUEntity extends MPUEntity {
 					}
 			} else if (resType == 1) {// ia
 				if (msg.what == 0x3600) {
-					if (!isAudioStarted()) {
-						startOrRestart();
-					}
 					addPUDataChannel(pdc);
+					checkThread();
 				} else {
 					removePUDataChannel(pdc);
 				}
@@ -342,6 +347,7 @@ public class MyMPUEntity extends MPUEntity {
 			}
 
 		};
+		Assert.assertNull(mIAThread);
 		mIAThread = t;
 		t.start();
 	}
@@ -658,6 +664,6 @@ public class MyMPUEntity extends MPUEntity {
 
 	public boolean isAudioStarted() {
 		Thread mIAThread2 = mIAThread;
-		return mIAThread2 != null && mIAThread2.isAlive();
+		return mIAThread2 != null;
 	}
 }
