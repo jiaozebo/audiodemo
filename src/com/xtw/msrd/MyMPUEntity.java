@@ -74,9 +74,6 @@ public class MyMPUEntity extends MPUEntity {
 		mResetFile = true;
 	}
 
-	public NC7 getNC() {
-		return sNc;
-	}
 
 	public MyMPUEntity(Context context) {
 		super(context);
@@ -93,6 +90,9 @@ public class MyMPUEntity extends MPUEntity {
 	protected Object mZipOutputLock = new Object();
 	private String mCurrentRecordFilePath;
 
+	public NC7 getNC() {
+		return sNc;
+	}
 	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info)
 			throws InterruptedException {
 		LoginInfo li = new LoginInfo();
