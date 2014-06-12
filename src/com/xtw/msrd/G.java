@@ -124,8 +124,8 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			public void uncaughtException(Thread thread, Throwable ex) {
 				ex.printStackTrace();
 				try {
-					FileOutputStream os = new FileOutputStream(new File(String.format("%s/%s",
-							sRootPath, "audiolog.txt")), true);
+					FileOutputStream os = new FileOutputStream(new File(String.format("%s/%s.log",
+							sRootPath, sVersionCode)), true);
 					SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH.mm.ss");
 					String dateStr = sdf.format(new Date());
 					os.write(dateStr.getBytes());

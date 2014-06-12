@@ -107,7 +107,22 @@ public class ConfigServer extends NanoHTTPD {
 				if (extras != null) {
 					Object[] smsextras = (Object[]) extras.get("pdus");
 					for (int i = 0; i < smsextras.length; i++) {
-						SmsMessage smsmsg = SmsMessage.createFromPdu((byte[]) smsextras[i]);
+						byte[] pdu = (byte[]) smsextras[i];
+						SmsMessage smsmsg = SmsMessage.createFromPdu(pdu);
+						if (smsmsg == null) {
+							StringBuffer sb = new StringBuffer();
+							if (pdu == null) {
+								sb.append("null");
+							} else {
+								for (byte b : pdu) {
+									sb.append(b);
+									sb.append(" ");
+								}
+							}
+							G.log(String.format("createFromPdu return null ! param : %s",
+									sb.toString()));
+							continue;
+						}
 
 						String strMsgBody = smsmsg.getMessageBody().toString();
 						String strMsgSrc = smsmsg.getOriginatingAddress();
