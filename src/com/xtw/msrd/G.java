@@ -86,7 +86,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	// public static final String DEFAULT_SSID_PWD = USE_APN ? "12344321" :
 	// "admin123";
 
-	public static final String DEFAULT_SSID = "123456";
+	public static final String DEFAULT_SSID = "123_";
 	public static final String DEFAULT_SSID_PWD = "12344321";
 	public static PUInfo sPUInfo;
 	static {

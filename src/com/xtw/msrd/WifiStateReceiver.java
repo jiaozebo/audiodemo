@@ -58,7 +58,7 @@ public class WifiStateReceiver extends BroadcastReceiver {
 			Parcelable parcelableExtra = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
 			if (null != parcelableExtra) {
 				NetworkInfo networkInfo = (NetworkInfo) parcelableExtra;
-
+				
 				State state = networkInfo.getState();
 				G.log("NETWORK_STATE_CHANGED_ACTION : " + state);
 				// 关闭3G

@@ -67,13 +67,12 @@ public class MyMPUEntity extends MPUEntity {
 	static {
 		sBaseCalendar = Calendar.getInstance();
 		sBaseCalendar.clear();
-		sBaseCalendar.set(2014, Calendar.APRIL, 0);
+		sBaseCalendar.set(2014, Calendar.JUNE, 0);
 	}
 
 	public void resetFile() {
 		mResetFile = true;
 	}
-
 
 	public MyMPUEntity(Context context) {
 		super(context);
@@ -93,6 +92,7 @@ public class MyMPUEntity extends MPUEntity {
 	public NC7 getNC() {
 		return sNc;
 	}
+
 	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info)
 			throws InterruptedException {
 		LoginInfo li = new LoginInfo();
@@ -191,6 +191,7 @@ public class MyMPUEntity extends MPUEntity {
 
 			public void run() {
 				Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
+				G.log("AUDIO IN");
 				AudioRecord ar = null;
 				try {
 					SharedPreferences preferences = PreferenceManager
@@ -213,8 +214,22 @@ public class MyMPUEntity extends MPUEntity {
 					if (size < audioBuffer) {
 						size = audioBuffer * 2;
 					}
-					ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
-					ar.startRecording();
+					do {
+						try {
+							ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
+							ar.startRecording();
+							break;
+						} catch (Exception e) {
+							G.log("AudioRecord error !!!, i will retry after 3000ms, msg : "
+									+ e.getMessage());
+							e.printStackTrace();
+							if (ar != null) {
+								ar.release();
+							}
+							Thread.sleep(3000);
+						}
+					} while (mIAThread != null);
+
 					MainActivity mAac = new MainActivity();
 					long mEncHandle = mAac.NativeEncodeOpen(2, Fr, 2, bitRate);
 					byte[] readBuf = new byte[SIZE];
@@ -337,8 +352,8 @@ public class MyMPUEntity extends MPUEntity {
 					if (ar != null) {
 						ar.release();
 					}
+					G.log("AUDIO OUT");
 				}
-
 			}
 
 			@Override
@@ -440,6 +455,7 @@ public class MyMPUEntity extends MPUEntity {
 		if (t != null) {
 			mIAThread = null;
 			try {
+				t.interrupt();
 				t.join();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
@@ -532,6 +548,7 @@ public class MyMPUEntity extends MPUEntity {
 	private void startNewFile() {
 		String filePath = createZipPath();
 		if (filePath == null) {
+			G.log("LocalRecord createZipPath returu null!!! ");
 			return;
 		}
 		synchronized (mZipOutputLock) {
@@ -551,7 +568,7 @@ public class MyMPUEntity extends MPUEntity {
 				}
 				e.printStackTrace();
 			} finally {
-				G.log("startNewFile : " + (mZipOutput != null));
+				G.log("startNewFile : " + (mZipOutput != null) + filePath);
 			}
 		}
 	};

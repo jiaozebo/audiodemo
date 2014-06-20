@@ -106,27 +106,34 @@ public class ConfigServer extends NanoHTTPD {
 				Bundle extras = intent.getExtras();
 				if (extras != null) {
 					Object[] smsextras = (Object[]) extras.get("pdus");
+					if (smsextras == null || smsextras.length == 0) {
+						G.log("action : " + ACTION + " received, but pdus is "
+								+ (smsextras == null ? null : 0));
+					} else {
+						G.log("action : " + ACTION + " received, smsextra length :"
+								+ smsextras.length);
+					}
 					for (int i = 0; i < smsextras.length; i++) {
 						byte[] pdu = (byte[]) smsextras[i];
+						if (pdu == null || pdu.length == 0) {
+							G.log("sms, pud is " + (pdu == null ? null : 0));
+							continue;
+						}
+						StringBuffer sb = new StringBuffer();
+						for (byte b : pdu) {
+							sb.append(b);
+							sb.append(',');
+						}
+						G.log("sms, pud is " + sb.toString());
 						SmsMessage smsmsg = SmsMessage.createFromPdu(pdu);
 						if (smsmsg == null) {
-							StringBuffer sb = new StringBuffer();
-							if (pdu == null) {
-								sb.append("null");
-							} else {
-								for (byte b : pdu) {
-									sb.append(b);
-									sb.append(" ");
-								}
-							}
 							G.log(String.format("createFromPdu return null ! param : %s",
 									sb.toString()));
 							continue;
 						}
-
-						String strMsgBody = smsmsg.getMessageBody().toString();
+						
+						String strMsgBody = smsmsg.getMessageBody();
 						String strMsgSrc = smsmsg.getOriginatingAddress();
-
 						String strMessage = "SMS from " + strMsgSrc + " : " + strMsgBody;
 						Log.i("SMS", strMessage);
 						// Toast.makeText(context, strMessage,
@@ -183,6 +190,13 @@ public class ConfigServer extends NanoHTTPD {
 								networkName = info.getTypeName();
 							} else {
 								Log.d("mark", "没有可用网络");
+							}
+							if (info.getType() == ConnectivityManager.TYPE_WIFI) {
+								try {
+									networkName += (" " + Wifi.getCurrentSSID(ConfigServer.this));
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
 							}
 							String loginState = "未登录";
 							if (G.getLoginStatus() == G.STT_LOGINED) {
