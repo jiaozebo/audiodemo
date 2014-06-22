@@ -119,6 +119,10 @@ public class WifiStateReceiver extends BroadcastReceiver {
 				// G.stopServer();
 				}
 			}
+			
+			Intent i = new Intent(context, PUServerService.class);
+			i.putExtra(PUServerService.EXTRA_CHECK_WIFI_NOW, true);
+			context.startService(i);
 		}
 		//
 		// // 这个监听网络连接的设置，包括wifi和移动数据的打开和关闭。.

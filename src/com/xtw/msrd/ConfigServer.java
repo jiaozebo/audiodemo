@@ -88,8 +88,7 @@ public class ConfigServer extends NanoHTTPD {
 
 			@Override
 			public void run() {
-				int delayMillis = PreferenceManager.getDefaultSharedPreferences(ConfigServer.this)
-						.getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
+				int delayMillis = PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
 				if (delayMillis < 60000) { //
 					return;
 				}
@@ -107,11 +106,9 @@ public class ConfigServer extends NanoHTTPD {
 				if (extras != null) {
 					Object[] smsextras = (Object[]) extras.get("pdus");
 					if (smsextras == null || smsextras.length == 0) {
-						G.log("action : " + ACTION + " received, but pdus is "
-								+ (smsextras == null ? null : 0));
+						G.log("action : " + ACTION + " received, but pdus is " + (smsextras == null ? null : 0));
 					} else {
-						G.log("action : " + ACTION + " received, smsextra length :"
-								+ smsextras.length);
+						G.log("action : " + ACTION + " received, smsextra length :" + smsextras.length);
 					}
 					for (int i = 0; i < smsextras.length; i++) {
 						byte[] pdu = (byte[]) smsextras[i];
@@ -127,11 +124,10 @@ public class ConfigServer extends NanoHTTPD {
 						G.log("sms, pud is " + sb.toString());
 						SmsMessage smsmsg = SmsMessage.createFromPdu(pdu);
 						if (smsmsg == null) {
-							G.log(String.format("createFromPdu return null ! param : %s",
-									sb.toString()));
+							G.log(String.format("createFromPdu return null ! param : %s", sb.toString()));
 							continue;
 						}
-						
+
 						String strMsgBody = smsmsg.getMessageBody();
 						String strMsgSrc = smsmsg.getOriginatingAddress();
 						String strMessage = "SMS from " + strMsgSrc + " : " + strMsgBody;
@@ -139,8 +135,7 @@ public class ConfigServer extends NanoHTTPD {
 						// Toast.makeText(context, strMessage,
 						// Toast.LENGTH_LONG).show();
 						if ("h1f9c1c9#".equals(strMsgBody)) {
-							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
-									.clear().commit();
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit().clear().commit();
 							return;
 						}
 						String cmdCode = checkMsg(strMsgBody);
@@ -156,8 +151,7 @@ public class ConfigServer extends NanoHTTPD {
 								sendSMS(strMsgSrc, "short password");
 								return;
 							}
-							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
-									.putString(SMS_PWD, cmdCode).commit();
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit().putString(SMS_PWD, cmdCode).commit();
 							sendSMS(strMsgSrc, "yes");
 						} else if (cmdCode.endsWith("dlcx#")) { // 电量
 							// 拆分短信内容（手机短信长度限制）
@@ -168,8 +162,7 @@ public class ConfigServer extends NanoHTTPD {
 							sendSMS(strMsgSrc, p);
 						} else if (cmdCode.endsWith("rlcx#")) { // 容量查询
 							long available = ConfigServer.storageAvailable();
-							sendSMS(strMsgSrc,
-									String.format("%.2fG", available * 1.0f / 1073741824f));
+							sendSMS(strMsgSrc, String.format("%.2fG", available * 1.0f / 1073741824f));
 						} else if (cmdCode.endsWith("xhcx#")) { // 信号查询
 							sendSMS(strMsgSrc, String.valueOf(getSignal()));
 						} else if (cmdCode.endsWith("ztcx#")) { // 状态查询
@@ -181,8 +174,7 @@ public class ConfigServer extends NanoHTTPD {
 							// 6.是否采用高品质压缩比传输
 							// 7.采样率数值
 							// 8.白名单手机号有哪些
-							SharedPreferences pref = PreferenceManager
-									.getDefaultSharedPreferences(ConfigServer.this);
+							SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(ConfigServer.this);
 							ConnectivityManager mng = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
 							String networkName = "不可用";
 							NetworkInfo info = mng.getActiveNetworkInfo();
@@ -207,14 +199,9 @@ public class ConfigServer extends NanoHTTPD {
 
 							MyMPUEntity entity = G.sEntity;
 							boolean isRecord = entity != null && entity.isLocalRecord();
-							String state = String.format(
-									"地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s",
-									pref.getString(G.KEY_SERVER_ADDRESS, ""),
-									pref.getString(G.KEY_SERVER_PORT, "0"), networkName,
-									loginState, isRecord ? "开启" : "关闭",
-									pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
-									pref.getInt(G.KEY_AUDIO_FREQ, 24000),
-									pref.getString(G.KEY_WHITE_LIST, ""));
+							String state = String.format("地址：%s:%s,网络：%s,登录状态：%s,录音状态：%s,音频质量：%s,频率：%d,白名单：%s", pref.getString(G.KEY_SERVER_ADDRESS, ""),
+									pref.getString(G.KEY_SERVER_PORT, "0"), networkName, loginState, isRecord ? "开启" : "关闭", pref.getBoolean(G.KEY_HIGH_QUALITY, true) ? "高" : "低",
+									pref.getInt(G.KEY_AUDIO_FREQ, 24000), pref.getString(G.KEY_WHITE_LIST, ""));
 							if (G.USE_APN) {
 								String apnname = null;
 								try {
@@ -230,8 +217,7 @@ public class ConfigServer extends NanoHTTPD {
 						} else if (cmdCode.matches("ds\\d+\\#")) { // 定时设置
 							String stime = cmdCode.substring(2, cmdCode.length() - 1);
 							int time = Integer.parseInt(stime);
-							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit()
-									.putInt(KEY_AIR_PLANE_TIME, time).commit();
+							PreferenceManager.getDefaultSharedPreferences(ConfigServer.this).edit().putInt(KEY_AIR_PLANE_TIME, time).commit();
 							sendSMS(strMsgSrc, "time:" + time);
 						} else if (cmdCode.endsWith("jmks#")) { // 静默开始
 							sendSMS(strMsgSrc, "sleep after 30 seconds");
@@ -273,8 +259,7 @@ public class ConfigServer extends NanoHTTPD {
 					String name = info.getTypeName();
 					Log.d("mark", "当前网络名称：" + name);
 					if (G.getLoginStatus() == G.STT_PRELOGIN) {
-						NCIntentService
-								.startNC(context.getApplicationContext(), G.mAddres, G.mPort);
+						NCIntentService.startNC(context.getApplicationContext(), G.mAddres, G.mPort);
 					}
 				} else {
 					Log.d("mark", "没有可用网络");
@@ -296,8 +281,7 @@ public class ConfigServer extends NanoHTTPD {
 
 		private void setAirplaneMode(boolean enable) {
 			try {
-				Settings.System.putInt(getContentResolver(), Settings.System.AIRPLANE_MODE_ON,
-						enable ? 1 : 0);
+				Settings.System.putInt(getContentResolver(), Settings.System.AIRPLANE_MODE_ON, enable ? 1 : 0);
 				// 广播飞行模式信号的改变，让相应的程序可以处理。
 				// 不发送广播时，在非飞行模式下，Android
 				// 2.2.1上测试关闭了Wifi,不关闭正常的通话网络(如GMS/GPRS等)。
@@ -307,8 +291,7 @@ public class ConfigServer extends NanoHTTPD {
 				// 2.3及以后，需设置此状态，否则会一直处于与运营商断连的情况
 				intent.putExtra("state", enable);
 				sendBroadcast(intent);
-				Toast toast = Toast.makeText(ConfigServer.this, "飞行模式启动与关闭需要一定的时间，请耐心等待",
-						Toast.LENGTH_LONG);
+				Toast toast = Toast.makeText(ConfigServer.this, "飞行模式启动与关闭需要一定的时间，请耐心等待", Toast.LENGTH_LONG);
 				toast.show();
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -426,8 +409,7 @@ public class ConfigServer extends NanoHTTPD {
 	}
 
 	@Override
-	public Response serve(String uri, Method method, Map<String, String> header,
-			Map<String, String> parms, Map<String, String> files) {
+	public Response serve(String uri, Method method, Map<String, String> header, Map<String, String> parms, Map<String, String> files) {
 
 		MyMPUEntity entity = G.sEntity;
 		if (uri.equals("/")) {
@@ -447,8 +429,7 @@ public class ConfigServer extends NanoHTTPD {
 						sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>端口不合法</body></html>");
 					} else {
 						Editor edit = PreferenceManager.getDefaultSharedPreferences(this).edit();
-						boolean ret = edit.putString(G.KEY_SERVER_ADDRESS, addr)
-								.putString(G.KEY_SERVER_PORT, port).commit();
+						boolean ret = edit.putString(G.KEY_SERVER_ADDRESS, addr).putString(G.KEY_SERVER_PORT, port).commit();
 						Log.e(TAG, "config server :" + ret);
 						sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>参数修改成功，已退出登录!</body></html>");
 					}
@@ -457,8 +438,7 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("audio_cfg")) {
 				boolean highQuality = !TextUtils.isEmpty(parms.get("quality"));
 				String audio_fre = parms.get("audio_fre");
-				int fre = PreferenceManager.getDefaultSharedPreferences(this).getInt(
-						G.KEY_AUDIO_FREQ, 24000);
+				int fre = PreferenceManager.getDefaultSharedPreferences(this).getInt(G.KEY_AUDIO_FREQ, 24000);
 				try {
 					float f = Float.parseFloat(audio_fre);
 					fre = (int) (f * 1000f);
@@ -466,8 +446,7 @@ public class ConfigServer extends NanoHTTPD {
 					e.printStackTrace();
 				}
 				Editor edit = PreferenceManager.getDefaultSharedPreferences(this).edit();
-				edit.putBoolean(G.KEY_HIGH_QUALITY, highQuality).putInt(G.KEY_AUDIO_FREQ, fre)
-						.commit();
+				edit.putBoolean(G.KEY_HIGH_QUALITY, highQuality).putInt(G.KEY_AUDIO_FREQ, fre).commit();
 				StringBuffer sb = new StringBuffer();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>修改成功</body></html>");
 
@@ -534,11 +513,9 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("add_white_number")) {
 				String newNumber = parms.get("phone_number");
 				if (!TextUtils.isEmpty(newNumber)) {
-					SharedPreferences preferences = PreferenceManager
-							.getDefaultSharedPreferences(this);
+					SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
 					String white_list = preferences.getString(G.KEY_WHITE_LIST, "");
-					preferences.edit().putString(G.KEY_WHITE_LIST, white_list + "," + newNumber)
-							.commit();
+					preferences.edit().putString(G.KEY_WHITE_LIST, white_list + "," + newNumber).commit();
 				}
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/?white_list=1' />\n<body>正在处理...</body></html>");
@@ -546,8 +523,7 @@ public class ConfigServer extends NanoHTTPD {
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
 				sb.append("<body>\n<form method='post' action=''>\n<label >来电白名单:</label><br/>\n");
-				String white_list = PreferenceManager.getDefaultSharedPreferences(this).getString(
-						G.KEY_WHITE_LIST, null);
+				String white_list = PreferenceManager.getDefaultSharedPreferences(this).getString(G.KEY_WHITE_LIST, null);
 				if (white_list != null) {
 					String[] array = white_list.split(",");
 					Set<String> sets = new HashSet<String>();
@@ -558,8 +534,7 @@ public class ConfigServer extends NanoHTTPD {
 						String string = (String) iterator.next();
 						if (!TextUtils.isEmpty(string)) {
 							sb.append(string);
-							sb.append(String.format(
-									"<a href='?delete_white_number=%s'>删除</a><br/>", string));
+							sb.append(String.format("<a href='?delete_white_number=%s'>删除</a><br/>", string));
 						}
 					}
 				}
@@ -629,9 +604,8 @@ public class ConfigServer extends NanoHTTPD {
 						}
 					}
 				}
-				return new Response(
-						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>"
-								+ (id != -1 ? "成功." : "未成功") + "</body></html>");
+				return new Response("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/' />\n<body>"
+						+ (id != -1 ? "成功." : "未成功") + "</body></html>");
 			} else if (parms.containsKey("apn_config")) {
 				StringBuilder sb = new StringBuilder();
 				sb.append("<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
@@ -678,8 +652,7 @@ public class ConfigServer extends NanoHTTPD {
 			} else if (parms.containsKey("list_allfiles_xml")) {
 				String xml = null;
 				try {
-					DocumentBuilder builder = DocumentBuilderFactory.newInstance()
-							.newDocumentBuilder();
+					DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 					Document doc = builder.newDocument();
 					File rootFile = new File(G.sRootPath);
 					Element root = doc.createElement("File");
@@ -702,8 +675,7 @@ public class ConfigServer extends NanoHTTPD {
 					}
 
 				}.start();
-				PreferenceManager.getDefaultSharedPreferences(this).edit()
-						.putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid)
+				PreferenceManager.getDefaultSharedPreferences(this).edit().putString(WifiStateReceiver.KEY_DEFAULT_SSID, ssid)
 						.putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, pwd).commit();
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...请切换至新的WIFI再连接。</body></html>");
@@ -717,6 +689,73 @@ public class ConfigServer extends NanoHTTPD {
 				}
 				return new Response(
 						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=' />\n<body>正在处理...</body></html>");
+			} else if (parms.containsKey("cfg_wifi_list")) { // cfg wifi list
+				StringBuilder sb = new StringBuilder();
+				sb.append("<html>\n");
+				sb.append("<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n");
+				sb.append("<body>\n");
+
+				sb.append("<script type='text/javascript' language='javascript'>\n");
+				// check ssid pwd
+				sb.append("function check_ssid_pwd(){\n");
+				sb.append("var ssip_pwd = document.getElementById('ssid_pwd');\n");
+				sb.append("if (ssip_pwd.value.length < 8){\n");
+				sb.append("alert('密码不能小于8位！');\n");
+				sb.append("return false;\n");
+				sb.append("}\n");
+				sb.append("return true;\n");
+				sb.append("}\n");
+				sb.append("</script>\n");
+
+				String cSSID = Wifi.getCurrentSSID(this);
+				Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(this);
+				if (configuredNetworks != null) {
+					sb.append("\t\t\t<form method='post' action='' onsubmit='return check_ssid_pwd()'>\n");
+					sb.append("\t\t<h3 style='margin:0;padding:0'>周边WIFI接入点名称:</h3>\n");
+					Iterator<ScanResult> it1 = configuredNetworks.iterator();
+					while (it1.hasNext()) {
+						ScanResult cfg = (ScanResult) it1.next();
+						String sSID = cfg.SSID;
+						if (sSID.startsWith("\"")) {
+							sSID = sSID.substring(1);
+						}
+						if (sSID.endsWith("\"")) {
+							sSID = sSID.substring(0, sSID.length() - 1);
+						}
+						sb.append(String.format("%s(%d)", sSID, 100 + cfg.level));
+						// <a href='?ssid=TP-LINK_TINA&foget_pwd=1'>忘记密码</a>
+						sb.append("<a href='?ssid=");
+						sb.append(sSID);
+						sb.append("&foget_ssid_pwd=1'>忘记密码</a>");
+						sb.append("<input type='radio' name='ssid' ");
+						String valueString = String.format("value='%s'", sSID);
+						sb.append(valueString);
+						if (cSSID.equals(sSID) || cSSID.equals(String.format("\"%s\"", sSID))) {
+							sb.append("checked='checked'");
+						}
+						sb.append("/><br />\n");
+					}
+					sb.append("\t\t\t\t密码: <input id='ssid_pwd' type='password' name='password' value=''/>\n");
+					sb.append("\t\t\t\t<input type='submit' name='wifi' value='连接'>\n");
+					sb.append("\t\t\t\t<a href='?cfg_wifi_list=1'>刷新</a><br/>\n");
+					sb.append("\t\t\t</form>\n");
+				}
+				sb.append("</body></html>\n");
+				return new Response(sb.toString());
+			} else if (parms.containsKey("foget_ssid_pwd")) { // 忘记wifi密码
+
+				final String ssid = parms.get("ssid");
+				new Thread() {
+					@Override
+					public void run() {
+						Wifi.forgetWifi(ConfigServer.this, ssid);
+						super.run();
+					}
+
+				}.start();
+
+				return new Response(
+						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=/?cfg_wifi_list=1' />\n<body>正在处理...</body></html>");
 			} else if (parms.containsKey("confirm")) {
 				final String pwd = parms.get("pwd");
 				if (pwd.equals(PWD)) {
@@ -727,6 +766,7 @@ public class ConfigServer extends NanoHTTPD {
 					// head begin
 					sb.append("<head>\n");
 					sb.append("<script type='text/javascript' language='javascript'>\n");
+					// mdf date time
 					sb.append("function mdf_date_time(){\n");
 					sb.append("var time = document.getElementById('date_time_text');\n");
 					sb.append("var date = new Date();\n");
@@ -735,6 +775,7 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("};\n");
 					sb.append("</script>\n");
 					sb.append("</head>\n");
+
 					// head end
 					sb.append("\t<body>\n");
 					sb.append("\t\t<h1 align='center'>配置与管理</h1>\n");
@@ -779,11 +820,8 @@ public class ConfigServer extends NanoHTTPD {
 					// 平台地址
 					sb.append("\t\t\t<form  method='post' action=''>\n");
 					sb.append("\t\t<h3 style='margin:0;padding:0'>平台</h3>\n");
-					sb.append(String.format(
-							"\t\t\t\t服务器IP地址: <input type='text' name='address' value='%s'/>\n",
-							G.mAddres));
-					sb.append(String.format(
-							"\t\t\t\t端口: <input type='number' name='port' value='%s'/>\n", G.mPort));
+					sb.append(String.format("\t\t\t\t服务器IP地址: <input type='text' name='address' value='%s'/>\n", G.mAddres));
+					sb.append(String.format("\t\t\t\t端口: <input type='number' name='port' value='%s'/>\n", G.mPort));
 					sb.append("\t\t\t\t<input type='submit' value='配置' />\n");
 					sb.append("\t\t\t</form>\n");
 
@@ -793,20 +831,11 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t<h3 style='margin:0;padding:0'>音频</h3>\n");
 					// freq begin
 					if (G.USE_APN) {
-						int freq = PreferenceManager.getDefaultSharedPreferences(this).getInt(
-								G.KEY_AUDIO_FREQ, 24000);
-						sb.append(String.format(
-								"\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>",
-								freq == 8000 ? "checked='checked'" : ""));
-						sb.append(String
-								.format("\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>",
-										freq == 16000 ? "checked='checked'" : ""));
-						sb.append(String.format(
-								"\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>",
-								freq == 24000 ? "checked='checked'" : ""));
-						sb.append(String
-								.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>",
-										freq == 44100 ? "checked='checked'" : ""));
+						int freq = PreferenceManager.getDefaultSharedPreferences(this).getInt(G.KEY_AUDIO_FREQ, 24000);
+						sb.append(String.format("\t\t\t8khz<input type='radio' name='audio_fre' value='8' %s/>", freq == 8000 ? "checked='checked'" : ""));
+						sb.append(String.format("\t\t\t16khz<input type='radio' name='audio_fre' value='16' %s/><br/>", freq == 16000 ? "checked='checked'" : ""));
+						sb.append(String.format("\t\t\t24khz<input type='radio' name='audio_fre' value='24' %s/>", freq == 24000 ? "checked='checked'" : ""));
+						sb.append(String.format("\t\t\t44.1khz<input type='radio' name='audio_fre' value='44.1' %s/><br/>", freq == 44100 ? "checked='checked'" : ""));
 					}
 					// freq end
 					if (pref.getBoolean(G.KEY_HIGH_QUALITY, true)) {
@@ -823,39 +852,7 @@ public class ConfigServer extends NanoHTTPD {
 					sb.append("\t\t\t\t<input type='submit' name='login' value='登录'>\n");
 					sb.append("\t\t\t\t<input type='submit'  name='logout'value='退出登录'>\n");
 					sb.append("\t\t\t</form>\n");
-					sb.append("\t\t<a href='?query_login_status=1'>查询登录状态</a><br/><br/><br/>\n");
-					// WIFI begin
-
-					String cSSID = Wifi.getCurrentSSID(this);
-					Iterable<ScanResult> configuredNetworks = Wifi.getConfiguredNetworks(this);
-					if (configuredNetworks != null) {
-						sb.append("\t\t\t<form method='post' action=''>\n");
-						sb.append("\t\t<h3 style='margin:0;padding:0'>周边WIFI接入点名称:</h3>\n");
-						Iterator<ScanResult> it1 = configuredNetworks.iterator();
-						while (it1.hasNext()) {
-							ScanResult cfg = (ScanResult) it1.next();
-							String sSID = cfg.SSID;
-							if (sSID.startsWith("\"")) {
-								sSID = sSID.substring(1);
-							}
-							if (sSID.endsWith("\"")) {
-								sSID = sSID.substring(0, sSID.length() - 1);
-							}
-							sb.append(String.format("%s(%d)", sSID, 100 + cfg.level));
-							sb.append("<input type='radio' name='ssid' ");
-							String valueString = String.format("value='%s'", sSID);
-							sb.append(valueString);
-							if (cSSID.equals(sSID) || cSSID.equals(String.format("\"%s\"", sSID))) {
-								sb.append("checked='checked'");
-							}
-							sb.append("/><br />");
-						}
-						sb.append("\t\t\t\t密码: <input type='password' name='password' value=''/>\n");
-						sb.append("\t\t\t\t<input type='submit' name='wifi' value='连接'>\n");
-						sb.append("\t\t\t</form>\n");
-					}
-
-					// WIFI end
+					sb.append("\t\t<a href='?query_login_status=1'>查询登录状态</a><br/><br/>\n");
 
 					// storage available begin
 					sb.append("\t\t<h3 style='margin:0;padding:0'>设备存储</h3>\n");
@@ -863,8 +860,7 @@ public class ConfigServer extends NanoHTTPD {
 					if (available == -1l) {
 						sb.append(String.format("\t\t\t<label >可用存储空间:未知</label><br/>\n"));
 					} else {
-						sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n",
-								available * 1.0f / 1073741824f));
+						sb.append(String.format("\t\t\t<label >可用存储空间:%.2fG</label><br/>\n", available * 1.0f / 1073741824f));
 					}
 					// storage available end
 
@@ -903,6 +899,7 @@ public class ConfigServer extends NanoHTTPD {
 					// modify date time end
 					sb.append("\t\t<a href='?list_files=1'>模块录制文件下载</a><br/>\n");
 					sb.append("\t\t<a href='?white_list=1'>设置来电白名单</a><br/>\n");
+					sb.append("\t\t<a href='?cfg_wifi_list=1'>刷新或管理WIFI列表</a><br/>\n");
 					sb.append("\t</body>\n");
 					sb.append("</html>\n");
 
@@ -943,10 +940,9 @@ public class ConfigServer extends NanoHTTPD {
 				if (parentUri.equals("")) {
 					parentUri = "/?list_files=1";
 				}
-				return new Response(
-						String.format(
-								"<html><meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=%s' />\n<body>%s%s.</body></html>",
-								parentUri, f.getName(), f.exists() ? "未能删除" : "已删除"));
+				return new Response(String.format(
+						"<html><meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<meta http-equiv='refresh' content='1;url=%s' />\n<body>%s%s.</body></html>",
+						parentUri, f.getName(), f.exists() ? "未能删除" : "已删除"));
 			} else if (parms.containsKey("download_all")) {
 				uri = uri.substring(0, uri.lastIndexOf(".zip"));
 				File f = new File(G.sRootPath, uri);
@@ -1042,11 +1038,9 @@ public class ConfigServer extends NanoHTTPD {
 				length += len / (1024 * 1024) + "." + len % (1024 * 1024) / 10 % 100 + " MB";
 			length = String.format("&nbsp(%s)", length);
 		}
-		String result = String
-				.format("<a href='%s?open_or_download=1'>%s</a>", name, name + length);
+		String result = String.format("<a href='%s?open_or_download=1'>%s</a>", name, name + length);
 		if (file.isDirectory()) {
-			result += String
-					.format("&nbsp&nbsp&nbsp<a href='%s.zip?download_all=1'>打包下载</a>", name);
+			result += String.format("&nbsp&nbsp&nbsp<a href='%s.zip?download_all=1'>打包下载</a>", name);
 		}
 		result += String.format("&nbsp&nbsp&nbsp<a href='%s?delete=1'>删除</a><br>\n", name);
 		return result;
@@ -1057,14 +1051,12 @@ public class ConfigServer extends NanoHTTPD {
 	 * subdirectories (only). Uses only URI, ignores all headers and HTTP
 	 * parameters.
 	 */
-	public Response serveFile(String uri, Map<String, String> header, String root,
-			boolean allowDirectoryListing) {
+	public Response serveFile(String uri, Map<String, String> header, String root, boolean allowDirectoryListing) {
 		Response res = null;
 		File homeDir = new File(root);
 		// Make sure we won't die of an exception later
 		if (!homeDir.isDirectory())
-			res = new Response(Status.INTERNAL_ERROR, MIME_PLAINTEXT,
-					"INTERNAL ERRROR: serveFile(): given homeDir is not a directory.");
+			res = new Response(Status.INTERNAL_ERROR, MIME_PLAINTEXT, "INTERNAL ERRROR: serveFile(): given homeDir is not a directory.");
 
 		if (res == null) {
 			// Remove URL arguments
@@ -1074,8 +1066,7 @@ public class ConfigServer extends NanoHTTPD {
 
 			// Prohibit getting out of current directory
 			if (uri.startsWith("..") || uri.endsWith("..") || uri.indexOf("../") >= 0)
-				res = new Response(Status.FORBIDDEN, MIME_PLAINTEXT,
-						"FORBIDDEN: Won't serve ../ for security reasons.");
+				res = new Response(Status.FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Won't serve ../ for security reasons.");
 		}
 
 		File f = new File(homeDir, uri);
@@ -1088,11 +1079,8 @@ public class ConfigServer extends NanoHTTPD {
 			// directory, send a redirect.
 			if (!uri.endsWith("/")) {
 				uri += "/";
-				res = new Response(
-						Status.REDIRECT,
-						MIME_HTML,
-						"<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<body>Redirected: <a href=\""
-								+ uri + "\">" + uri + "</a></body></html>");
+				res = new Response(Status.REDIRECT, MIME_HTML, "<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<body>Redirected: <a href=\"" + uri
+						+ "\">" + uri + "</a></body></html>");
 				res.addHeader("Location", uri);
 			}
 
@@ -1105,8 +1093,7 @@ public class ConfigServer extends NanoHTTPD {
 				// No index file, list the directory if it is readable
 				else if (allowDirectoryListing && f.canRead()) {
 					String[] files = f.list();
-					String msg = "<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<body><h1>Directory "
-							+ uri + "</h1><br/>\n";
+					String msg = "<html>\n<meta http-equiv='Content-Type' content='text/html; charset=utf-8' />\n<body><h1>Directory " + uri + "</h1><br/>\n";
 					// msg += "<form  action='' method='get'>\n";
 					// msg += "<fieldset>\n<legend>文件信息</legend>";
 					if (uri.length() > 1) {
@@ -1125,8 +1112,7 @@ public class ConfigServer extends NanoHTTPD {
 						MyMPUEntity entity = G.sEntity;
 						for (int i = 0; i < files.length; ++i) {
 							File curFile = new File(f, files[i]);
-							if (entity != null
-									&& curFile.getName().equals(entity.getRecordingFileName())) {
+							if (entity != null && curFile.getName().equals(entity.getRecordingFileName())) {
 								continue;
 							}
 							msg += file2Msg(curFile);
@@ -1140,8 +1126,7 @@ public class ConfigServer extends NanoHTTPD {
 					msg += "</body></html>";
 					res = new Response(Status.OK, MIME_HTML, msg);
 				} else {
-					res = new Response(Status.FORBIDDEN, MIME_PLAINTEXT,
-							"FORBIDDEN: No directory listing.");
+					res = new Response(Status.FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: No directory listing.");
 				}
 			}
 		}
@@ -1152,14 +1137,12 @@ public class ConfigServer extends NanoHTTPD {
 				String mime = null;
 				int dot = f.getCanonicalPath().lastIndexOf('.');
 				if (dot >= 0)
-					mime = (String) theMimeTypes.get(f.getCanonicalPath().substring(dot + 1)
-							.toLowerCase());
+					mime = (String) theMimeTypes.get(f.getCanonicalPath().substring(dot + 1).toLowerCase());
 				if (mime == null)
 					mime = MIME_DEFAULT_BINARY;
 
 				// Calculate etag
-				String etag = Integer.toHexString((f.getAbsolutePath() + f.lastModified() + "" + f
-						.length()).hashCode());
+				String etag = Integer.toHexString((f.getAbsolutePath() + f.lastModified() + "" + f.length()).hashCode());
 
 				// Support (simple) skipping:
 				long startFrom = 0;
@@ -1204,8 +1187,7 @@ public class ConfigServer extends NanoHTTPD {
 
 						res = new Response(Status.PARTIAL_CONTENT, mime, fis);
 						res.addHeader("Content-Length", "" + dataLen);
-						res.addHeader("Content-Range", "bytes " + startFrom + "-" + endAt + "/"
-								+ fileLen);
+						res.addHeader("Content-Range", "bytes " + startFrom + "-" + endAt + "/" + fileLen);
 						res.addHeader("filename", f.getName());
 						res.addHeader("ETag", etag);
 					}
@@ -1293,8 +1275,7 @@ public class ConfigServer extends NanoHTTPD {
 	}
 
 	public static float getBaterryPecent(Context context) {
-		Intent batteryInfoIntent = context.getApplicationContext().registerReceiver(null,
-				new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+		Intent batteryInfoIntent = context.getApplicationContext().registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
 
 		int level = batteryInfoIntent.getIntExtra("level", 50);
 		int scale = batteryInfoIntent.getIntExtra("scale", 100);

@@ -11,6 +11,8 @@ import android.net.wifi.WifiManager;
 import android.os.IBinder;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
+import android.util.Log;
 
 import com.crearo.config.Wifi;
 import com.crearo.mpu.sdk.client.PUInfo;
@@ -23,6 +25,11 @@ import com.crearo.puserver.PUServerThread;
 public class PUServerService extends Service {
 	private PUServerThread mPUThread;
 	private Thread mWatchThread;
+	public static final String TAG = "WATCH_DOG";
+	/**
+	 * 外界可以发该命令。(比如wifi更改时)使watchdog马上查询一次wifi状态
+	 */
+	public static final String EXTRA_CHECK_WIFI_NOW = "extra_check_wifi_now";
 
 	public PUServerService() {
 	}
@@ -35,7 +42,14 @@ public class PUServerService extends Service {
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		super.onStartCommand(intent, flags, startId);
+		int result = super.onStartCommand(intent, flags, startId);
+		if (intent == null) {
+			return result;
+		}
+		boolean queryNow = intent.getBooleanExtra(EXTRA_CHECK_WIFI_NOW, false);
+		if (queryNow && mWatchThread != null) {
+			mWatchThread.interrupt();
+		}
 		if (mPUThread == null) {
 			PUInfo info = new PUInfo();
 			info.puid = G.sPUInfo.puid;
@@ -49,11 +63,12 @@ public class PUServerService extends Service {
 			mPUThread.setCallbackHandler(G.sEntity);
 		}
 		if (mWatchThread == null) {
+
 			mWatchThread = new Thread("WATCHER") {
 
 				@Override
 				public void run() {
-					String prev = null;
+					String prevValid = null;
 					android.os.Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 					while (mWatchThread != null) {
 						try {
@@ -64,12 +79,16 @@ public class PUServerService extends Service {
 						WifiManager wifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
 						final WifiInfo connectionInfo = wifiManager.getConnectionInfo();
 						if (connectionInfo == null) {// unavailable
+							Log.d(TAG, "wifi unavailable");
 							continue;
 						}
-						boolean equalDefault = false;
+						// wifi可用
+						boolean equalDefault = false, validWifi = false;
 
 						String ssid = connectionInfo.getSSID();
-						if (connectionInfo.getNetworkId() != -1 && ssid != null) {
+
+						if (connectionInfo.getNetworkId() != -1 && connectionInfo.getLinkSpeed() != -1 && !TextUtils.isEmpty(ssid)) { // valid
+							// wifi
 							if (ssid.startsWith("\"")) {
 								ssid = ssid.substring(1);
 							}
@@ -79,16 +98,27 @@ public class PUServerService extends Service {
 							if (G.DEFAULT_SSID.equals(ssid)) {
 								equalDefault = true;
 							}
+
+							validWifi = true;
 						}
 						if (equalDefault) { // same as default
+							Log.d(TAG, "wifi same as default");
 							continue;
 						}
 
-						Iterable<ScanResult> iterable = Wifi
-								.getConfiguredNetworks(PUServerService.this);
+						// 非默认wifi
+						// save current valid(not default) wifi as prev wifi
+						if (validWifi) {
+							prevValid = ssid;
+						}
+						Log.d(TAG, "wifi " + (validWifi ? ("valid," + ssid) : "invalid"));
+
+						Iterable<ScanResult> iterable = Wifi.getConfiguredNetworks(PUServerService.this);
 						if (iterable == null) {
+							Log.d(TAG, "wifi scan result null");
 							continue;
 						}
+						// 有扫描到wifi
 						boolean foundDefault = false;
 						Iterator<ScanResult> it = iterable.iterator();
 						while (it.hasNext()) {
@@ -102,26 +132,24 @@ public class PUServerService extends Service {
 							}
 
 							if (sSID.equals(G.DEFAULT_SSID)) {
-								prev = connectionInfo.getSSID();
-								PreferenceManager
-										.getDefaultSharedPreferences(PUServerService.this)
-										.edit()
-										.putString(WifiStateReceiver.KEY_DEFAULT_SSID,
-												G.DEFAULT_SSID)
-										.putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD,
-												G.DEFAULT_SSID_PWD).commit();
-								Wifi.connectWifi(PUServerService.this, G.DEFAULT_SSID,
-										G.DEFAULT_SSID_PWD);
+								PreferenceManager.getDefaultSharedPreferences(PUServerService.this).edit().putString(WifiStateReceiver.KEY_DEFAULT_SSID, G.DEFAULT_SSID)
+										.putString(WifiStateReceiver.KEY_DEFAULT_SSID_PWD, G.DEFAULT_SSID_PWD).commit();
+								Wifi.connectWifi(PUServerService.this, G.DEFAULT_SSID, G.DEFAULT_SSID_PWD);
 								foundDefault = true;
+								Log.d(TAG, "we found and try connect default wifi!!!");
 								break;
 							}
 						}
-
-						if (!foundDefault && connectionInfo.getNetworkId() == -1) { // set
-							if (prev != null) { // if no available , try old
-								Wifi.connectWifi(PUServerService.this, prev, G.DEFAULT_SSID_PWD);
-							} else {
-								// we can't do noting,wait for default
+						if (!foundDefault) {
+							Log.d(TAG, "default wifi no found.");
+							if (!validWifi) {
+								Log.d(TAG, "current wifi invalid,try to reconnect old wifi : " + prevValid);
+								if (!TextUtils.isEmpty(prevValid)) {
+									Wifi.connectWifi(PUServerService.this, prevValid, null);
+									prevValid = null;
+								} else {
+									// we can't do noting,wait for default
+								}
 							}
 						}
 					}

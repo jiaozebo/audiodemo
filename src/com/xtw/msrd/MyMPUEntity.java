@@ -16,19 +16,15 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 import junit.framework.Assert;
-
-import util.DES;
-import util.MD5;
-
 import nochump.util.zip.EncryptZipEntry;
 import nochump.util.zip.EncryptZipOutput;
+import util.DES;
+import util.MD5;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.os.Message;
 import android.os.Process;
 import android.preference.PreferenceManager;
@@ -93,8 +89,7 @@ public class MyMPUEntity extends MPUEntity {
 		return sNc;
 	}
 
-	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info)
-			throws InterruptedException {
+	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info) throws InterruptedException {
 		LoginInfo li = new LoginInfo();
 		li.addr = addr;
 		li.port = port;
@@ -194,18 +189,16 @@ public class MyMPUEntity extends MPUEntity {
 				G.log("AUDIO IN");
 				AudioRecord ar = null;
 				try {
-					SharedPreferences preferences = PreferenceManager
-							.getDefaultSharedPreferences(mContext);
-					int Fr = preferences.getInt(G.KEY_AUDIO_FREQ, 24000);
-					if (Fr != 24000 || Fr != 8000 || Fr != 16000 || Fr != 44100) {// fix
+					SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+					int Fr = preferences.getInt(G.KEY_AUDIO_FREQ, 44100);
+					if (Fr != 24000 && Fr != 8000 && Fr != 16000 && Fr != 44100) {// fix
 																					// fr
 						Fr = 24000;
 					}
 					final int FRAME_NUMBER_PER_FILE = MINUTES_PER_FILE * 240 * Fr / SIZE;
 
 					int bitRate = preferences.getBoolean(G.KEY_HIGH_QUALITY, true) ? 64000 : 32000;
-					final int audioSource = VERSION.SDK_INT >= VERSION_CODES.HONEYCOMB ? AudioSource.VOICE_COMMUNICATION
-							: AudioSource.DEFAULT;
+					final int audioSource = AudioSource.DEFAULT;
 					int CC = AudioFormat.CHANNEL_IN_STEREO;
 					int BitNum = AudioFormat.ENCODING_PCM_16BIT;
 					int audioBuffer = AudioRecord.getMinBufferSize(Fr, CC, BitNum);
@@ -216,12 +209,11 @@ public class MyMPUEntity extends MPUEntity {
 					}
 					do {
 						try {
-							ar = new AudioRecord(audioSource, Fr, CC, BitNum, size);
+							ar = new AudioRecord(audioSource, Fr, CC, BitNum, size * 4);
 							ar.startRecording();
 							break;
 						} catch (Exception e) {
-							G.log("AudioRecord error !!!, i will retry after 3000ms, msg : "
-									+ e.getMessage());
+							G.log("AudioRecord error !!!, i will retry after 3000ms, msg : " + e.getMessage());
 							e.printStackTrace();
 							if (ar != null) {
 								ar.release();
@@ -246,8 +238,7 @@ public class MyMPUEntity extends MPUEntity {
 						}
 						read = 0;
 
-						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
-								outBuf, SIZE);
+						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2, outBuf, SIZE);
 						if (ret <= 0) {
 							continue;
 						}
@@ -367,8 +358,7 @@ public class MyMPUEntity extends MPUEntity {
 		t.start();
 	}
 
-	protected static void save2FileEncrypt(byte[] outBuf, int offset, int length, String filePath,
-			boolean append) throws IOException {
+	protected static void save2FileEncrypt(byte[] outBuf, int offset, int length, String filePath, boolean append) throws IOException {
 		EncryptZipOutput out = new EncryptZipOutput(new FileOutputStream(filePath, append), "123");
 
 		out.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
@@ -495,8 +485,7 @@ public class MyMPUEntity extends MPUEntity {
 	 * @param bigEndian
 	 * @return
 	 */
-	public static short getMax(byte[] data, int offset, int length, short topValue,
-			boolean bigEndian) {
+	public static short getMax(byte[] data, int offset, int length, short topValue, boolean bigEndian) {
 		short max = 0;
 		// ByteBuffer bf = ByteBuffer.wrap(data, offset, length);
 		// ShortBuffer sf = bf.asShortBuffer();
