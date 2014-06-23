@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 import junit.framework.Assert;
 import nochump.util.zip.EncryptZipEntry;
 import nochump.util.zip.EncryptZipOutput;
+import util.CommonMethod;
 import util.DES;
 import util.MD5;
 import android.content.Context;
@@ -81,15 +82,14 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	protected List<PUDataChannel> mPDc = new ArrayList<PUDataChannel>();
-	protected EncryptZipOutput mZipOutput;
-	protected Object mZipOutputLock = new Object();
 	private String mCurrentRecordFilePath;
 
 	public NC7 getNC() {
 		return sNc;
 	}
 
-	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info) throws InterruptedException {
+	public int loginBlock(String addr, int port, boolean fixAddress, String password, PUInfo info)
+			throws InterruptedException {
 		LoginInfo li = new LoginInfo();
 		li.addr = addr;
 		li.port = port;
@@ -189,7 +189,8 @@ public class MyMPUEntity extends MPUEntity {
 				G.log("AUDIO IN");
 				AudioRecord ar = null;
 				try {
-					SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+					SharedPreferences preferences = PreferenceManager
+							.getDefaultSharedPreferences(mContext);
 					int Fr = preferences.getInt(G.KEY_AUDIO_FREQ, 44100);
 					if (Fr != 24000 && Fr != 8000 && Fr != 16000 && Fr != 44100) {// fix
 																					// fr
@@ -213,7 +214,8 @@ public class MyMPUEntity extends MPUEntity {
 							ar.startRecording();
 							break;
 						} catch (Exception e) {
-							G.log("AudioRecord error !!!, i will retry after 3000ms, msg : " + e.getMessage());
+							G.log("AudioRecord error !!!, i will retry after 3000ms, msg : "
+									+ e.getMessage());
 							e.printStackTrace();
 							if (ar != null) {
 								ar.release();
@@ -238,7 +240,8 @@ public class MyMPUEntity extends MPUEntity {
 						}
 						read = 0;
 
-						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2, outBuf, SIZE);
+						int ret = mAac.NativeEncodeFrame(mEncHandle, readBuf, readBuf.length / 2,
+								outBuf, SIZE);
 						if (ret <= 0) {
 							continue;
 						}
@@ -358,7 +361,8 @@ public class MyMPUEntity extends MPUEntity {
 		t.start();
 	}
 
-	protected static void save2FileEncrypt(byte[] outBuf, int offset, int length, String filePath, boolean append) throws IOException {
+	protected static void save2FileEncrypt(byte[] outBuf, int offset, int length, String filePath,
+			boolean append) throws IOException {
 		EncryptZipOutput out = new EncryptZipOutput(new FileOutputStream(filePath, append), "123");
 
 		out.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
@@ -485,7 +489,8 @@ public class MyMPUEntity extends MPUEntity {
 	 * @param bigEndian
 	 * @return
 	 */
-	public static short getMax(byte[] data, int offset, int length, short topValue, boolean bigEndian) {
+	public static short getMax(byte[] data, int offset, int length, short topValue,
+			boolean bigEndian) {
 		short max = 0;
 		// ByteBuffer bf = ByteBuffer.wrap(data, offset, length);
 		// ShortBuffer sf = bf.asShortBuffer();
@@ -511,7 +516,7 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	public boolean isLocalRecord() {
-		return (mZipOutput != null);
+		return (mCurrentRecordFilePath != null);
 	}
 
 	/**
@@ -535,68 +540,24 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	private void startNewFile() {
-		String filePath = createZipPath();
+		String filePath = createWavPath();
 		if (filePath == null) {
 			G.log("LocalRecord createZipPath returu null!!! ");
 			return;
 		}
-		synchronized (mZipOutputLock) {
-			try {
-				mZipOutput = new EncryptZipOutput(new FileOutputStream(filePath), "123");
-				mCurrentRecordFilePath = filePath;
-				filePath = filePath.replace(".zip", ".wav");
-				mZipOutput.putNextEntry(new EncryptZipEntry(new File(filePath).getName()));
-			} catch (IOException e) {
-				if (mZipOutput != null) {
-					try {
-						mZipOutput.close();
-					} catch (IOException e1) {
-						e1.printStackTrace();
-					}
-					mZipOutput = null;
-				}
-				e.printStackTrace();
-			} finally {
-				G.log("startNewFile : " + (mZipOutput != null) + filePath);
-			}
-		}
+		G.sCurrentRecordFilePath = mCurrentRecordFilePath = filePath;
 	};
 
 	private void recordFrame(byte[] outBuf, int ret) {
-		synchronized (mZipOutputLock) {
-			EncryptZipOutput output = mZipOutput;
-			if (output != null) {
 
-				try {
-					output.write(outBuf, 0, ret);
-					output.flush();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				// CommonMethod.save2fileNoLength(outBuf, 0, ret,
-				// filePath, true);
-			}
+		if (!TextUtils.isEmpty(mCurrentRecordFilePath)) {
+			CommonMethod.save2fileNoLength(outBuf, 0, ret, mCurrentRecordFilePath, true);
 		}
 	}
 
 	private void stopRecord() {
-		synchronized (mZipOutputLock) {
-			mCurrentRecordFilePath = null;
-			EncryptZipOutput output = mZipOutput;
-			if (output != null) {
-				mZipOutput = null;
-				try {
-					output.flush();
-					output.closeEntry();
-					output.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			G.log("stopRecord !");
-		}
+		EncryptIntentService.startActionFoo(mContext, mCurrentRecordFilePath, null);
+		mCurrentRecordFilePath = null;
 	}
 
 	/**
@@ -616,18 +577,11 @@ public class MyMPUEntity extends MPUEntity {
 		}
 	}
 
-	public String getRecordingFileName() {
-		if (mCurrentRecordFilePath == null) {
-			return null;
-		}
-		return new File(mCurrentRecordFilePath).getName();
-	}
-
 	public String getRecordingFilePath() {
 		return mCurrentRecordFilePath;
 	}
 
-	private String createZipPath() {
+	private String createWavPath() {
 		// String rootPath = String.format("%s/%s", Environment
 		// .getExternalStorageDirectory().getPath(), "audio");
 		// if (G.sRootPath.equals(rootPath)) {
@@ -641,7 +595,7 @@ public class MyMPUEntity extends MPUEntity {
 			File dirFile = new File(G.sRootPath, dirPath);
 			dirFile.mkdirs();
 			sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
-			filePath = String.format("%s/%s.zip", dirFile.getPath(), sdf.format(date));
+			filePath = String.format("%s/%s.wav", dirFile.getPath(), sdf.format(date));
 		} else { // 视作时间不正确
 			String dirPath = String.valueOf(1);
 			File dirFile = new File(G.sRootPath, dirPath);
@@ -650,7 +604,7 @@ public class MyMPUEntity extends MPUEntity {
 
 				@Override
 				public boolean accept(File dir, String filename) {
-					return Pattern.matches("\\d+\\.zip", filename);
+					return Pattern.matches("\\d+\\.wav", filename);
 				}
 			});
 			if (paths == null) {
@@ -663,7 +617,7 @@ public class MyMPUEntity extends MPUEntity {
 					max = p;
 				}
 			}
-			filePath = String.format("%s/%d.zip", dirFile.getPath(), ++max);
+			filePath = String.format("%s/%d.wav", dirFile.getPath(), ++max);
 		}
 		return filePath;
 	}

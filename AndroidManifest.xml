@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.xtw.msrd"
     android:versionCode="14"
-    android:versionName="9.14.0.apn" >
+    android:versionName="9.14.0.apn.temp" >
 
     <uses-sdk
         android:minSdkVersion="8"
@@ -89,6 +89,10 @@
         <service android:name="com.xtw.msrd.PUServerService" />
         <service android:name="com.xtw.msrd.ConfigServer" />
         <service android:name="com.xtw.msrd.RecordService" />
+        <service
+            android:name="com.xtw.msrd.EncryptIntentService"
+            android:exported="false" >
+        </service>
     </application>
 
 </manifest>

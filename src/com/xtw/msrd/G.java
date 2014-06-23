@@ -102,6 +102,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 */
 	public static boolean sIsAbortToRecordAfterMounted = true;
 	public static String sVersionCode = null;
+	public static String sCurrentRecordFilePath;
 
 	/*
 	 * (non-Javadoc)
@@ -363,5 +364,12 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			state = Environment.getExternalStorageState();
 		}
 		return state;
+	}
+
+	public static String getRecordingFileName() {
+		if (sCurrentRecordFilePath == null) {
+			return null;
+		}
+		return new File(sCurrentRecordFilePath).getName();
 	}
 }
