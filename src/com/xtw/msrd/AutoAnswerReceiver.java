@@ -24,6 +24,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract.PhoneLookup;
 import android.telephony.TelephonyManager;
@@ -34,16 +36,16 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 	private static final String tag = "AutoAnswer";
 
 	@Override
-	public void onReceive(Context context, Intent intent) {
+	public void onReceive(final Context context, Intent intent) {
 
 		// Load preferences
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+		final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
 
 		// Check phone state
 		String phone_state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-		String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-		MyMPUEntity entity = G.sEntity;
-		
+		final String number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
+		final MyMPUEntity entity = G.sEntity;
+
 		G.log(phone_state);
 		if (phone_state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {
 			String white_list = prefs.getString(G.KEY_WHITE_LIST, null);
@@ -61,19 +63,28 @@ public class AutoAnswerReceiver extends BroadcastReceiver {
 			}
 			// Check for "second call" restriction
 			if (!found) {
-				G.log(number + " not found in white_list!");
 				return;
 			}
+			G.log(number + " found in white_list!");
 			// Call a service, since this could take a few seconds
-			G.log("answer " + number);
-			context.startService(new Intent(context, AutoAnswerIntentService.class));
+			HandlerThread handlerThread = new HandlerThread("StopAudioAndAnswer");
+			handlerThread.start();
+			new Handler(handlerThread.getLooper()).post(new Runnable() {
+
+				@Override
+				public void run() {
+					G.log("answer " + number);
+					if (entity != null) {
+						G.log("stop audio");
+						Log.e(tag, "ring,close");
+						prefs.edit().putBoolean("prev_record", entity.isLocalRecord()).commit();
+						entity.stopAudio();
+					}
+					context.startService(new Intent(context, AutoAnswerIntentService.class));
+				}
+			});
+			G.log("StopAudioAndAnswer Thread started!");
 		} else if (TelephonyManager.EXTRA_STATE_OFFHOOK.equals(phone_state)) {
-			if (entity != null) {
-				G.log("stop audio");
-				Log.e(tag, "ring,close");
-				prefs.edit().putBoolean("prev_record", entity.isLocalRecord()).commit();
-				entity.stopAudio();
-			}
 		} else if (phone_state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
 			if (entity != null && !entity.isAudioStarted()) {
 				G.log("restart audio");

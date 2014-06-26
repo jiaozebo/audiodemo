@@ -307,7 +307,6 @@ public class MyMPUEntity extends MPUEntity {
 							frame.keyFrmFlg = 1;
 							frame.type = Frame.FRAME_TYPE_AUDIO;
 							frame.mFrameIdx = loopCount++;
-
 							ByteBuffer bf = null;
 							if (dc != null) {
 								try {
@@ -324,7 +323,7 @@ public class MyMPUEntity extends MPUEntity {
 								int pos = bf.position();
 								synchronized (mPDc) {
 									Iterator<PUDataChannel> it = mPDc.iterator();
-									while (it.hasNext()) {
+									while (mIAThread != null && it.hasNext()) {
 										PUDataChannel channel = (PUDataChannel) it.next();
 										channel.pumpFrame(bf);
 										bf.limit(lim);
@@ -335,7 +334,6 @@ public class MyMPUEntity extends MPUEntity {
 						}
 					}
 					mAac.NativeEncodeClose(mEncHandle);
-
 				} catch (Exception e) {
 					e.printStackTrace();
 					if (isLocalRecord()) {
@@ -556,6 +554,10 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	private void stopRecord() {
+		if (mCurrentRecordFilePath == null) {
+			G.log("stop record, but path is already null!");
+			return;
+		}
 		EncryptIntentService.startActionFoo(mContext, mCurrentRecordFilePath, null);
 		mCurrentRecordFilePath = null;
 	}

@@ -78,6 +78,7 @@ public class ConfigServer extends NanoHTTPD {
 
 			@Override
 			public void run() {
+				G.log("receive msg window opening...");
 				setAirplaneMode(false);
 				// 关闭后有1分钟的窗口期待收指令，如果未收到，再开启
 				sHandler.postDelayed(mOpenAirPlane, 60 * 1000);
@@ -90,10 +91,12 @@ public class ConfigServer extends NanoHTTPD {
 			public void run() {
 				int delayMillis = PreferenceManager.getDefaultSharedPreferences(ConfigServer.this)
 						.getInt(KEY_AIR_PLANE_TIME, 1) * 60000;
+				G.log("mOpenAirPlane, aireplane mode interval: " + delayMillis);
 				if (delayMillis < 60000) { //
 					return;
 				}
 				setAirplaneMode(true);
+				G.log("mOpenAirPlane, stop record...");
 				RecordService.stop(ConfigServer.this);
 				// 开启一定时间后关闭。
 				sHandler.postDelayed(mCloseAirPlane, delayMillis);
@@ -241,6 +244,7 @@ public class ConfigServer extends NanoHTTPD {
 							sHandler.removeCallbacks(mOpenAirPlane);
 							sHandler.removeCallbacks(mCloseAirPlane);
 							setAirplaneMode(false);
+							G.log("closing airplane mode...");
 							RecordService.start(ConfigServer.this);
 							sendSMS(strMsgSrc, "stop sleep");
 						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
@@ -261,6 +265,7 @@ public class ConfigServer extends NanoHTTPD {
 							} catch (IOException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
+								G.log("rebooting device received: " + e.getMessage());
 							}
 						}
 					}
@@ -312,6 +317,7 @@ public class ConfigServer extends NanoHTTPD {
 				toast.show();
 			} catch (Exception e) {
 				e.printStackTrace();
+				G.log("setAirplaneMode " + enable + ", exception: " + e.getMessage());
 			}
 		}
 	}
