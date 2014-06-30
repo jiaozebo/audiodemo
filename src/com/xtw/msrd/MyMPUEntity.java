@@ -1,6 +1,8 @@
 package com.xtw.msrd;
 
 import java.io.File;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -336,14 +338,11 @@ public class MyMPUEntity extends MPUEntity {
 					mAac.NativeEncodeClose(mEncHandle);
 				} catch (Exception e) {
 					e.printStackTrace();
-					if (isLocalRecord()) {
-						G.log("audio exception : " + e.getMessage());
-						stopRecord();
-					}
 				} finally {
 					if (ar != null) {
 						ar.release();
 					}
+					stopRecord();
 					G.log("AUDIO OUT");
 				}
 			}
@@ -442,7 +441,6 @@ public class MyMPUEntity extends MPUEntity {
 	}
 
 	public void stopAudio() {
-
 		Thread t = mIAThread;
 		if (t != null) {
 			mIAThread = null;
@@ -455,7 +453,6 @@ public class MyMPUEntity extends MPUEntity {
 			}
 		}
 		G.log("stopAudio !");
-		stopRecord();
 	}
 
 	/*
@@ -543,14 +540,40 @@ public class MyMPUEntity extends MPUEntity {
 			G.log("LocalRecord createZipPath returu null!!! ");
 			return;
 		}
-		G.sCurrentRecordFilePath = mCurrentRecordFilePath = filePath;
+		try {
+			FileOutputStream fos = mContext.openFileOutput(new File(filePath).getName(),
+					Context.MODE_PRIVATE);
+			mCurrentRecordFilePath = filePath;
+			fos.close();
+			G.log("startNewFile:" + filePath);
+		} catch (FileNotFoundException e) {
+			G.log("openFileOutput exception : " + e.getMessage());
+			e.printStackTrace();
+		} catch (IOException e) {
+			G.log("openFileOutput exception : " + e.getMessage());
+			e.printStackTrace();
+		}
+
 	};
 
 	private void recordFrame(byte[] outBuf, int ret) {
-
 		if (!TextUtils.isEmpty(mCurrentRecordFilePath)) {
-			CommonMethod.save2fileNoLength(outBuf, 0, ret, mCurrentRecordFilePath, true);
+			try {
+				FileOutputStream fos = mContext.openFileOutput(
+						new File(mCurrentRecordFilePath).getName(), Context.MODE_APPEND);
+				fos.write(outBuf, 0, ret);
+				fos.close();
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
+		// if (!TextUtils.isEmpty(mCurrentRecordFilePath)) {
+		// CommonMethod.save2fileNoLength(outBuf, 0, ret,
+		// mCurrentRecordFilePath, true);
+		// }
 	}
 
 	private void stopRecord() {
@@ -589,6 +612,7 @@ public class MyMPUEntity extends MPUEntity {
 		// if (G.sRootPath.equals(rootPath)) {
 		// return null;
 		// }
+
 		SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd", Locale.CHINA);
 		Date date = new Date();
 		String filePath = null;

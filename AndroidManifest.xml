@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.xtw.msrd"
     android:versionCode="14"
-    android:versionName="9.14.2.apn" >
+    android:versionName="9.14.4.apn" >
 
     <uses-sdk
         android:minSdkVersion="8"

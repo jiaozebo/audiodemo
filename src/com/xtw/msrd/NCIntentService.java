@@ -1,12 +1,16 @@
 package com.xtw.msrd;
 
+import com.crearo.mpu.sdk.MPUHandler;
+
 import util.E;
 import android.app.IntentService;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.os.Process;
+import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import c7.NC7;
 
@@ -62,6 +66,8 @@ public class NCIntentService extends Service {
 								if (entity == null) {
 									return;
 								}
+								SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(NCIntentService.this);
+								G.sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
 								r = entity.loginBlock(param1, port, G.mFixAddr, "", G.sPUInfo);
 								if (r == 0) {
 									G.setLoginStatus(G.STT_LOGINED);

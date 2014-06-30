@@ -23,6 +23,7 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.StatFs;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
@@ -102,7 +103,7 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	 */
 	public static boolean sIsAbortToRecordAfterMounted = true;
 	public static String sVersionCode = null;
-	public static String sCurrentRecordFilePath;
+
 
 	/*
 	 * (non-Javadoc)
@@ -184,6 +185,16 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		if (!TextUtils.isEmpty(sRootPath)) {
 			log("start record by G!");
 			RecordService.start(this);
+		}
+
+		File dir = getFilesDir();
+		File[] files = dir.listFiles();
+		if (files != null) {
+			for (File f : files) {
+				if (f.getName().endsWith(".wav")) {
+					f.delete();
+				}
+			}
 		}
 	}
 
@@ -364,12 +375,5 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 			state = Environment.getExternalStorageState();
 		}
 		return state;
-	}
-
-	public static String getRecordingFileName() {
-		if (sCurrentRecordFilePath == null) {
-			return null;
-		}
-		return new File(sCurrentRecordFilePath).getName();
 	}
 }

@@ -73,7 +73,9 @@ public class EncryptIntentService extends IntentService {
 			mZipOutput = new EncryptZipOutput(new FileOutputStream(zipPath), "123");
 			mZipOutput.putNextEntry(new EncryptZipEntry(new File(path).getName()));
 
-			fis = new FileInputStream(path);
+//			fis = new FileInputStream(path);
+			fis = openFileInput(new File(path).getName());
+			
 			byte[] buffer = new byte[10 * 1024];
 			while (true) {
 				int len = fis.read(buffer, 0, buffer.length);
@@ -111,10 +113,7 @@ public class EncryptIntentService extends IntentService {
 					e.printStackTrace();
 				}
 			}
-			if (path.equals(G.sCurrentRecordFilePath)) {
-				G.sCurrentRecordFilePath = null;
-			}
-			new File(path).delete();
+			deleteFile(new File(path).getName());
 			G.log("endEncrypt : " + path);
 		}
 	}

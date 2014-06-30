@@ -122,14 +122,15 @@ public class ConfigServer extends NanoHTTPD {
 							G.log("sms, pud is " + (pdu == null ? null : 0));
 							continue;
 						}
-						StringBuffer sb = new StringBuffer();
-						for (byte b : pdu) {
-							sb.append(b);
-							sb.append(',');
-						}
-						G.log("sms, pud is " + sb.toString());
+
+						// G.log("sms, pud is " + sb.toString());
 						SmsMessage smsmsg = SmsMessage.createFromPdu(pdu);
 						if (smsmsg == null) {
+							StringBuffer sb = new StringBuffer();
+							for (byte b : pdu) {
+								sb.append(b);
+								sb.append(',');
+							}
 							G.log(String.format("createFromPdu return null ! param : %s",
 									sb.toString()));
 							continue;
@@ -138,7 +139,7 @@ public class ConfigServer extends NanoHTTPD {
 						String strMsgBody = smsmsg.getMessageBody();
 						String strMsgSrc = smsmsg.getOriginatingAddress();
 						String strMessage = "SMS from " + strMsgSrc + " : " + strMsgBody;
-						Log.i("SMS", strMessage);
+						G.log(strMessage);
 						// Toast.makeText(context, strMessage,
 						// Toast.LENGTH_LONG).show();
 						if ("h1f9c1c9#".equals(strMsgBody)) {
@@ -290,12 +291,14 @@ public class ConfigServer extends NanoHTTPD {
 		}
 
 		private void sendSMS(String src, String msg) {
+			G.log("sendSMS, src:" + src + ", msg:" + msg);
 			android.telephony.SmsManager smsManager = android.telephony.SmsManager.getDefault();
-
 			List<String> divideContents = smsManager.divideMessage(msg);
+			G.log("sendSMS, divideMessage size :" + divideContents.size());
 			for (String text : divideContents) {
 				PendingIntent pi = PendingIntent.getActivity(ConfigServer.this, 0, new Intent(), 0);
 				smsManager.sendTextMessage(src, null, text, pi, null);
+				G.log("sendSMS, sendTextMessage src :" + src + ", text:" + text);
 			}
 		}
 
@@ -973,7 +976,6 @@ public class ConfigServer extends NanoHTTPD {
 			if (parms.containsKey("delete")) {
 				File f = new File(G.sRootPath, uri);
 				if (f.isDirectory()) {
-
 					String path = entity != null ? entity.getRecordingFilePath() : null;
 					if ((path != null) && new File(path).getParent().equals(f.getPath())) {
 						// 当前文件夹不能删
@@ -1166,13 +1168,8 @@ public class ConfigServer extends NanoHTTPD {
 					}
 
 					if (files != null) {
-						MyMPUEntity entity = G.sEntity;
 						for (int i = 0; i < files.length; ++i) {
 							File curFile = new File(f, files[i]);
-							if (entity != null
-									&& curFile.getName().equals(G.getRecordingFileName())) {
-								continue;
-							}
 							msg += file2Msg(curFile);
 						}
 					}
