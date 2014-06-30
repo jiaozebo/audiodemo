@@ -96,8 +96,11 @@ public class ConfigServer extends NanoHTTPD {
 					return;
 				}
 				setAirplaneMode(true);
-				G.log("mOpenAirPlane, stop record...");
-				RecordService.stop(ConfigServer.this);
+				if (!G.USE_APN) {
+					G.log("mOpenAirPlane, stop record...");
+					RecordService.stop(ConfigServer.this);
+				}
+
 				// 开启一定时间后关闭。
 				sHandler.postDelayed(mCloseAirPlane, delayMillis);
 			}
@@ -246,7 +249,10 @@ public class ConfigServer extends NanoHTTPD {
 							sHandler.removeCallbacks(mCloseAirPlane);
 							setAirplaneMode(false);
 							G.log("closing airplane mode...");
-							RecordService.start(ConfigServer.this);
+							if (!G.USE_APN) {
+								G.log("mCloseAirPlane, start record...");
+								RecordService.start(ConfigServer.this);
+							}
 							sendSMS(strMsgSrc, "stop sleep");
 						} else if (cmdCode.endsWith("kqly#")) {// 开启录音
 							RecordService.start(ConfigServer.this);
