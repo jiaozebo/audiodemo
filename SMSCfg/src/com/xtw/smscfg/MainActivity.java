@@ -1,8 +1,10 @@
 package com.xtw.smscfg;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -157,13 +159,13 @@ public class MainActivity extends Activity implements OnClickListener {
 	@Override
 	public void onClick(View v) {
 		int id = v.getId();
-		String number = mNumberET.getText().toString();
+		final String number = mNumberET.getText().toString();
 		if (TextUtils.isEmpty(number)) {
 			mNumberET.requestFocus();
 			Toast.makeText(this, "请输入号码", Toast.LENGTH_SHORT).show();
 			return;
 		}
-		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+		final SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
 		String pwd = preferences.getString(SMSApp.KEY_PWD, "1919");
 		/*
 		 * "修改密码", "*xgmm#", "电量查询", "dlcx#", "容量查询", "rlcx#", "信号查询", "xhcx#",
@@ -206,18 +208,26 @@ public class MainActivity extends Activity implements OnClickListener {
 		} else if (id == 18) { // 恢复出厂设置 ...
 			mContentET.setText(SMSApp.default_codes[id + 1]);
 		} else if (id == R.id.send) {
-			String content = mContentET.getText().toString();
-			if (content.contains(SMSApp.default_codes[1])) { // 修改密码
-				EditText etMdyPwd = (EditText) findViewById(R.id.et_mdy_set_pwd);
-				String newPwd = etMdyPwd.getText().toString();
-				preferences.edit().putString(SMSApp.KEY_TEMP_PWD, newPwd).commit();
-				etMdyPwd.setText("");
-			} else if (content.contains(SMSApp.default_codes[11])) { // 静默定时
-				EditText etMdyTime = (EditText) findViewById(R.id.et_time_minute);
-				etMdyTime.setText("");
-			}
-			SMSApp.sendSMS(this, number, content);
-			mContentET.setText("");
+			new AlertDialog.Builder(this).setMessage("确定要发送吗？")
+					.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							String content = mContentET.getText().toString();
+							if (content.contains(SMSApp.default_codes[1])) { // 修改密码
+								EditText etMdyPwd = (EditText) findViewById(R.id.et_mdy_set_pwd);
+								String newPwd = etMdyPwd.getText().toString();
+								preferences.edit().putString(SMSApp.KEY_TEMP_PWD, newPwd).commit();
+								etMdyPwd.setText("");
+							} else if (content.contains(SMSApp.default_codes[11])) { // 静默定时
+								EditText etMdyTime = (EditText) findViewById(R.id.et_time_minute);
+								etMdyTime.setText("");
+							}
+							SMSApp.sendSMS(MainActivity.this, number, content);
+							mContentET.setText("");
+						}
+					}).setNegativeButton("取消", null).show();
+
 		}
 	}
 

@@ -68,7 +68,9 @@ public class NCIntentService extends Service {
 								}
 								SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(NCIntentService.this);
 								G.sPUInfo.name = pref.getString(MPUHandler.KEY_PUNAME.toString(), "丽音模块");
+								G.log("before loginblock");
 								r = entity.loginBlock(param1, port, G.mFixAddr, "", G.sPUInfo);
+								G.log("end loginblock, r:" + r);
 								if (r == 0) {
 									G.setLoginStatus(G.STT_LOGINED);
 									LocalBroadcastManager.getInstance(NCIntentService.this)
@@ -84,6 +86,7 @@ public class NCIntentService extends Service {
 												e.printStackTrace();
 											}
 										} else if (nRet != 2) {
+											G.log("loop error! r:" + nRet);
 											break;
 										}
 									}

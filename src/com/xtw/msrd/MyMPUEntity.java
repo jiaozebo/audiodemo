@@ -630,7 +630,7 @@ public class MyMPUEntity extends MPUEntity {
 
 				@Override
 				public boolean accept(File dir, String filename) {
-					return Pattern.matches("\\d+\\.wav", filename);
+					return Pattern.matches("\\d+\\.zip", filename);
 				}
 			});
 			if (paths == null) {

@@ -108,6 +108,9 @@ public class ConfigServer extends NanoHTTPD {
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
+			if (intent == null) {
+				return;
+			}
 			if (intent.getAction().equals(ACTION)) {
 				Bundle extras = intent.getExtras();
 				if (extras != null) {
