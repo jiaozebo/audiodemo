@@ -581,7 +581,9 @@ public class MyMPUEntity extends MPUEntity {
 			G.log("stop record, but path is already null!");
 			return;
 		}
-		EncryptIntentService.startActionFoo(mContext, mCurrentRecordFilePath, null);
+
+		EncryptIntentService.startActionFoo(mContext, new File(mCurrentRecordFilePath).getName(),
+				mCurrentRecordFilePath.replace(".wav", ".zip"));
 		mCurrentRecordFilePath = null;
 	}
 
@@ -621,7 +623,19 @@ public class MyMPUEntity extends MPUEntity {
 			File dirFile = new File(G.sRootPath, dirPath);
 			dirFile.mkdirs();
 			sdf = new SimpleDateFormat("HH.mm.ss", Locale.CHINA);
-			filePath = String.format("%s/%s.wav", dirFile.getPath(), sdf.format(date));
+			String name = sdf.format(date) + ".wav";
+			filePath = String.format("%s/%s", dirFile.getPath(), name);
+			
+			int subIdx = 0;
+			while (new File(filePath).exists()) {
+				name = sdf.format(date) + "_" + ++subIdx + ".wav";
+				filePath = String.format("%s/%s", dirFile.getPath(), name);
+			}
+
+			// 将name->date存下来，以便发生异常时，能恢复到文件夹
+			PreferenceManager.getDefaultSharedPreferences(mContext).edit()
+					.putString(name, dirFile.getPath()).commit();
+
 		} else { // 视作时间不正确
 			String dirPath = String.valueOf(1);
 			File dirFile = new File(G.sRootPath, dirPath);
@@ -643,7 +657,12 @@ public class MyMPUEntity extends MPUEntity {
 					max = p;
 				}
 			}
-			filePath = String.format("%s/%d.wav", dirFile.getPath(), ++max);
+			String name = String.format("%d.wav", ++max);
+			filePath = String.format("%s/%s", dirFile.getPath(), name);
+
+			// 将name->date存下来，以便发生异常时，能恢复到文件夹
+			PreferenceManager.getDefaultSharedPreferences(mContext).edit()
+					.putString(name, dirFile.getPath()).commit();
 		}
 		return filePath;
 	}

@@ -10,6 +10,7 @@ import nochump.util.zip.EncryptZipOutput;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
+import android.preference.PreferenceManager;
 
 /**
  * An {@link IntentService} subclass for handling asynchronous task requests in
@@ -29,17 +30,18 @@ public class EncryptIntentService extends IntentService {
 	private static final String EXTRA_PARAM2 = "com.xtw.msrd.extra.PARAM2";
 
 	/**
-	 * Starts this service to perform action Foo with the given parameters. If
-	 * the service is already performing a task this action will be queued.
 	 * 
-	 * @see IntentService
+	 * @param context
+	 * @param src
+	 *            要存储的wav文件名称
+	 * @param dst
+	 *            zip文件路径
 	 */
-	// TODO: Customize helper method
-	public static void startActionFoo(Context context, String param1, String param2) {
+	public static void startActionFoo(Context context, String src, String dst) {
 		Intent intent = new Intent(context, EncryptIntentService.class);
 		intent.setAction(ACTION_FOO);
-		intent.putExtra(EXTRA_PARAM1, param1);
-		intent.putExtra(EXTRA_PARAM2, param2);
+		intent.putExtra(EXTRA_PARAM1, src);
+		intent.putExtra(EXTRA_PARAM2, dst);
 		context.startService(intent);
 	}
 
@@ -63,19 +65,19 @@ public class EncryptIntentService extends IntentService {
 	 * Handle action Foo in the provided background thread with the provided
 	 * parameters.
 	 */
-	private void handleActionFoo(String param1, String param2) {
-		String path = param1;
-		String zipPath = path.replace(".wav", ".zip");
-		G.log("startNewEncrypt : " + path);
+	private void handleActionFoo(String param1, String zipPath) {
+		String srcName = param1;
+
+		G.log("startNewEncrypt : " + srcName);
 		FileInputStream fis = null;
 		EncryptZipOutput mZipOutput = null;
 		try {
 			mZipOutput = new EncryptZipOutput(new FileOutputStream(zipPath), "123");
-			mZipOutput.putNextEntry(new EncryptZipEntry(new File(path).getName()));
+			mZipOutput.putNextEntry(new EncryptZipEntry(new File(srcName).getName()));
 
-//			fis = new FileInputStream(path);
-			fis = openFileInput(new File(path).getName());
-			
+			// fis = new FileInputStream(path);
+			fis = openFileInput(srcName);
+
 			byte[] buffer = new byte[10 * 1024];
 			while (true) {
 				int len = fis.read(buffer, 0, buffer.length);
@@ -113,8 +115,9 @@ public class EncryptIntentService extends IntentService {
 					e.printStackTrace();
 				}
 			}
-			deleteFile(new File(path).getName());
-			G.log("endEncrypt : " + path);
+			deleteFile(srcName);
+			PreferenceManager.getDefaultSharedPreferences(this).edit().remove(srcName).commit();
+			G.log("endEncrypt : " + srcName);
 		}
 	}
 }

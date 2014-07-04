@@ -87,6 +87,7 @@ public class NCIntentService extends Service {
 											}
 										} else if (nRet != 2) {
 											G.log("loop error! r:" + nRet);
+											nc7.close();
 											break;
 										}
 									}

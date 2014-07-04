@@ -104,7 +104,6 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 	public static boolean sIsAbortToRecordAfterMounted = true;
 	public static String sVersionCode = null;
 
-
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -192,7 +191,23 @@ public class G extends Application implements OnSharedPreferenceChangeListener {
 		if (files != null) {
 			for (File f : files) {
 				if (f.getName().endsWith(".wav")) {
-					f.delete();
+					String path = PreferenceManager.getDefaultSharedPreferences(this).getString(
+							f.getName(), null);
+					if (path == null) {
+						String dirPath = String.valueOf(1);
+						File dirFile = new File(G.sRootPath, dirPath);
+						dirFile.mkdirs();
+						path = dirFile.getPath();
+					}
+					String dst = path + "/" + f.getName().replace(".wav", ".zip");
+					try {
+						// 为了防止录音线程与加密线程冲突
+						new File(dst).createNewFile();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					EncryptIntentService.startActionFoo(this, f.getName(), dst);
 				}
 			}
 		}
