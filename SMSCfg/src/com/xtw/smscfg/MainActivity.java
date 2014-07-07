@@ -22,6 +22,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+import android.widget.ScrollView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity implements OnClickListener {
@@ -229,6 +230,9 @@ public class MainActivity extends Activity implements OnClickListener {
 					}).setNegativeButton("取消", null).show();
 
 		}
+		
+		ScrollView scroller = (ScrollView) findViewById(R.id.root_scroller);
+		scroller.scrollTo(0, 0);
 	}
 
 }
