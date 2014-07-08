@@ -198,7 +198,7 @@ public class MainActivity extends Activity implements OnClickListener {
 				etMdyTime.requestFocus();
 			} else {
 				etMdyTime.setText("");
-				mContentET.setText(String.format("*%s%s%s", pwd, SMSApp.default_codes[11], newPwd));
+				mContentET.setText(String.format("*%s%s%s#", pwd, SMSApp.default_codes[11], newPwd));
 			}
 		} else if (id == 12) { // 静默开始
 			mContentET.setText(String.format("*%s%s", pwd, SMSApp.default_codes[id + 1]));
