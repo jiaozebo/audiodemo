@@ -230,7 +230,7 @@ public class MainActivity extends Activity implements OnClickListener {
 					}).setNegativeButton("取消", null).show();
 
 		}
-		
+		mContentET.requestFocus();
 		ScrollView scroller = (ScrollView) findViewById(R.id.root_scroller);
 		scroller.scrollTo(0, 0);
 	}
