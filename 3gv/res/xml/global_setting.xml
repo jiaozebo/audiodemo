@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <PreferenceScreen
+        android:key="key_server"
+        android:layout="@layout/pre_platform"
+        android:title="@string/server" >
+        <android.util.DynSumETPreference
+            android:key="key_addr"
+            android:title="@string/serverAddr" >
+        </android.util.DynSumETPreference>
+        <android.util.DynSumETPreference
+            android:defaultValue="8866"
+            android:key="key_port"
+            android:title="@string/serverPort" >
+        </android.util.DynSumETPreference>
+
+        <EditTextPreference
+            android:key="key_password"
+            android:title="@string/password" >
+        </EditTextPreference>
+
+        <CheckBoxPreference
+            android:key="key_fixAddr"
+            android:summary="@string/fix_addr_desc"
+            android:title="@string/fix_addr" 
+            android:defaultValue="true">
+        </CheckBoxPreference>
+    </PreferenceScreen>
+    <PreferenceScreen
+        android:key="key_pu"
+        android:layout="@layout/pre_pu"
+        android:title="@string/pu_param" >
+        <android.util.DynSumETPreference
+            android:key="key_puName"
+            android:title="@string/pu_name" >
+        </android.util.DynSumETPreference>
+        <android.util.DynSumETPreference
+            android:key="key_desc"
+            android:title="@string/pu_desc" >
+        </android.util.DynSumETPreference>
+        <android.util.DynSumETPreference
+            android:key="key_puid"
+            android:title="PUID" >
+        </android.util.DynSumETPreference>
+    </PreferenceScreen>
+    <PreferenceScreen
+        android:key="key_camera"
+        android:layout="@layout/pre_cam"
+        android:title="@string/camera_param" >
+        <PreferenceCategory
+            android:key="key_cam_base"
+            android:title="@string/baseparam" >
+            <android.util.DynSumETPreference
+                android:key="key_cam_name"
+                android:title="@string/camera_name" >
+            </android.util.DynSumETPreference>
+        </PreferenceCategory>
+        <PreferenceCategory
+            android:key="key_video"
+            android:title="@string/video_param" >
+            <android.util.DynSumListPreference
+                android:key="key_resolution"
+                android:title="@string/camera_resolution" >
+            </android.util.DynSumListPreference>
+
+            <CheckBoxPreference
+                android:defaultValue="false"
+                android:key="key_video_portrait"
+                android:selectable="true"
+                android:title="@string/key_video_portrait" />
+            <CheckBoxPreference
+                android:defaultValue="false"
+                android:key="encode_compatibility"
+                android:selectable="true"
+                android:title="@string/compatibility_mode" />
+
+            <android.util.SeekBarPreference
+                android:defaultValue="4"
+                android:key="quality"
+                android:max="4"
+                android:title="@string/camera_quality" >
+            </android.util.SeekBarPreference>
+
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="key_ia_sync"
+                android:selectable="true"
+                android:title="@string/va_sync" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+    <PreferenceScreen
+        android:key="key_other"
+        android:layout="@layout/pre_other"
+        android:title="@string/other" >
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="key_press_talk"
+            android:summary="@string/press_talk_summary"
+            android:title="@string/press_talk" />
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="key_auto_endcall"
+            android:summary="@string/auto_endcall_summary"
+            android:title="@string/auto_endcall" />
+
+        <PreferenceCategory android:title="@string/record" >
+            <android.util.DynSumETPreference
+                android:key="key_record_interval"
+                android:title="@string/recordTime" >
+            </android.util.DynSumETPreference>
+
+            <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="key_auto_rerecord"
+                android:summary="@string/overtime_newfile"
+                android:title="@string/newfile" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
+</PreferenceScreen>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<DisplayFilter Version="7.0">
+	<ErrorCode Integer="16">
+		<ErrorCode Number="0x9000">
+			<LID_0804>服务器地址或端口不可到达</LID_0804>
+			<LID_0409>The server address or port is unreachable</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9001">
+			<LID_0804>未知错误</LID_0804>
+			<LID_0409>Unkown error</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9002">
+			<LID_0804>密码错误</LID_0804>
+			<LID_0409>Password error</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9003">
+			<LID_0804>PUID 不存在</LID_0804>
+			<LID_0409>The PUID is not exist</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9004">
+			<LID_0804>PUID 被禁用</LID_0804>
+			<LID_0409>The PUID is disable</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9006">
+			<LID_0804>设备已满</LID_0804>
+			<LID_0409>PU is full</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9007">
+			<LID_0804>非法的厂商ID</LID_0804>
+			<LID_0409>Invalid EPID</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9008">
+			<LID_0804>该设备已经上线</LID_0804>
+			<LID_0409>This device is online already</LID_0409>
+		</ErrorCode>
+		<ErrorCode Number="0x9011">
+			<LID_0804>重定向失败</LID_0804>
+			<LID_0409>No redirection-supported server</LID_0409>
+		</ErrorCode>
+	
+	</ErrorCode>
+</DisplayFilter>
